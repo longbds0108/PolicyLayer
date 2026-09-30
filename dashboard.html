@@ -11,7 +11,7 @@
 </head>
 <body>
   <div class="shell">
-    <header class="topbar"><a class="brand" href="index.html#home"><span class="mark">✦</span>PolicyLayer</a><nav class="app-nav"><a class="active" href="#overview">Overview</a><a href="#proposals">Proposals</a><a href="#policy">Policy</a><a href="#activity">Activity</a></nav><div class="top-actions"><span class="network"><i></i>GenLayer Testnet</span><button class="wallet" id="walletAddress">0x71...4A2f</button></div></header>
+    <header class="topbar"><a class="brand" href="index.html#home"><span class="mark">✦</span>PolicyLayer</a><nav class="app-nav"><a class="active" href="#overview">Overview</a><a href="#proposals">Proposals</a><a href="#policy">Policy</a><a href="#activity">Activity</a></nav><div class="top-actions"><span class="network"><i></i>GenLayer Testnet</span><div id="wallet-header-root"></div></div></header>
     <main class="main" id="overview">
       <section class="hero"><div><span class="eyebrow">Governance workspace · Testnet preview</span><h1>Your policy-led<br><em>command center.</em></h1><p>Review proposals, inspect consensus reasoning and move approved decisions to the community.</p></div><button class="primary" id="newProposal">＋ Create proposal</button></section>
       <section class="metrics"><div class="metric"><span>Active policy</span><strong>v1.2</strong><small>● Live on testnet</small></div><div class="metric"><span>Proposals reviewed</span><strong>24</strong><small>+6 this week</small></div><div class="metric"><span>Consensus rate</span><strong>98.4%</strong><small>3 validators</small></div><div class="metric"><span>Community votes</span><strong>01</strong><small>Needs attention</small></div></section>
@@ -21,8 +21,8 @@
     </main>
   </div>
   <script>
-    const saved=JSON.parse(localStorage.getItem('plWallet')||'null');if(saved?.address)document.querySelector('#walletAddress').textContent=saved.address;
     const newProposal=document.querySelector('#newProposal');newProposal.addEventListener('click',()=>alert('Proposal composer will be connected to the policy contract next.'));document.querySelector('#reviewProposal').addEventListener('click',()=>alert('Demo reasoning: proposal exceeds the community vote threshold but does not violate the active policy.'));
   </script>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

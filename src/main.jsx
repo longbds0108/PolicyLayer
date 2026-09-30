@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@rainbow-me/rainbowkit/styles.css';
+import './rainbow-bridge.css';
 import {
+  ConnectButton,
   darkTheme,
   getDefaultConfig,
   RainbowKitProvider,
@@ -36,13 +38,13 @@ function WalletBridge() {
 
   useEffect(() => {
     const open = () => openConnectModal?.();
-    const ids = ['getStarted', 'heroStart', 'ctaStart'];
+    const ids = ['heroStart', 'ctaStart'];
     ids.forEach((id) => document.querySelector(`#${id}`)?.addEventListener('click', open));
     return () => ids.forEach((id) => document.querySelector(`#${id}`)?.removeEventListener('click', open));
   }, [openConnectModal]);
 
   useEffect(() => {
-    if (!isConnected || !address) return;
+    if (window.location.pathname.endsWith('/dashboard.html') || !isConnected || !address) return;
     localStorage.setItem('plWallet', JSON.stringify({ address, mode: 'RainbowKit', chain: 'GenLayer Bradbury' }));
     window.location.href = 'dashboard.html';
   }, [address, isConnected]);
@@ -50,11 +52,34 @@ function WalletBridge() {
   return null;
 }
 
+function WalletHeader() {
+  return (
+    <ConnectButton.Custom>
+      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+        if (!mounted) return null;
+        if (chain?.unsupported) {
+          return <button className="policy-wallet-connect" onClick={openChainModal}>Wrong network</button>;
+        }
+        if (account) {
+          return (
+            <button className="policy-wallet-account" onClick={openAccountModal} type="button">
+              <span className="policy-wallet-orb">◈</span>
+              <span className="policy-wallet-copy"><small>Connected wallet</small><strong>{account.displayName}</strong></span>
+              <span className="policy-wallet-caret">⌄</span>
+            </button>
+          );
+        }
+        return <button className="policy-wallet-connect" onClick={openConnectModal} type="button">Get started <span>↗</span></button>;
+      }}
+    </ConnectButton.Custom>
+  );
+}
+
 function App() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
+          <RainbowKitProvider
           initialChain={genlayerBradbury}
           theme={darkTheme({
             accentColor: '#9B5DE5',
@@ -63,6 +88,7 @@ function App() {
             fontStack: 'system',
           })}
         >
+          <WalletHeader />
           <WalletBridge />
         </RainbowKitProvider>
       </QueryClientProvider>
@@ -70,4 +96,5 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('rainbow-root')).render(<App />);
+const mountNode = document.getElementById('wallet-header-root') || document.getElementById('rainbow-root');
+if (mountNode) createRoot(mountNode).render(<App />);
