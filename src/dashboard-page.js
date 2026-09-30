@@ -73,7 +73,9 @@ function chrome(activeKey, content) {
   `).join('');
 
   document.title = `PolicyLayer — ${NAV_ITEMS.find((item) => item.key === activeKey)?.label || 'Policies'}`;
-  document.body.innerHTML = `
+  const app = document.getElementById('app');
+  if (!app) return;
+  app.innerHTML = `
     <div class="shell">
       <header class="topbar">
         <a class="brand" href="/policies.html"><span class="mark">P</span><span>PolicyLayer</span></a>
