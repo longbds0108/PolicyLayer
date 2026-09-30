@@ -14,13 +14,23 @@
 .mobile-nav a.active{border-color:#5a4075;color:#fff;background:#1b1425}
 @media(max-width:900px){.mobile-nav-toggle{display:flex}.mobile-nav.open{display:flex;position:sticky;top:72px;z-index:4}}
 
-.tx-status{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:11px 12px;border:1px dashed #5a4075;background:#9b5de50a;color:#d8bdff;font:11px var(--mono);letter-spacing:.03em;text-transform:none}
-.tx-status .tx-spinner{width:12px;height:12px;border-radius:50%;border:2px solid #9b5de5;border-top-color:transparent;animation:tx-spin .9s linear infinite}
-.tx-status .tx-message{color:#e2d3f2}
-.tx-status .tx-hash{color:#b57dee;text-decoration:underline}
-.tx-status .tx-hash:hover{color:#e1caff}
-.tx-status .tx-cancel{color:#ff9aa2;font:10px var(--mono);text-transform:uppercase;letter-spacing:.05em}
-@keyframes tx-spin{to{transform:rotate(360deg)}}
+.tx-status{margin-top:14px;padding:14px 16px;border:1px solid #4d3768;border-radius:6px;background:radial-gradient(circle at 0 0,rgba(155,93,229,.12),transparent 60%),rgba(28,20,39,.85)}
+.tx-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none;margin:0;padding:0}
+.tx-step{position:relative;display:flex;align-items:center;gap:8px;padding:0 6px 0 0;color:#7d7290;font:11px/1.35 var(--mono);letter-spacing:.02em}
+.tx-step + .tx-step::before{content:'';position:absolute;left:-14px;top:9px;width:12px;height:1px;background:#3a2f4d}
+.tx-dot{position:relative;flex:none;width:14px;height:14px;border:1px solid #4d3768;border-radius:50%;background:#100c17}
+.tx-step.done .tx-dot{border-color:#4EDBA1;background:#4EDBA1}
+.tx-step.done .tx-dot::after{content:'';position:absolute;left:3px;top:5px;width:6px;height:3px;border-left:1.6px solid #0e0b14;border-bottom:1.6px solid #0e0b14;transform:rotate(-45deg)}
+.tx-step.done{color:#4EDBA1}
+.tx-step.active .tx-dot{border-color:#9b5de5;box-shadow:0 0 0 3px rgba(155,93,229,.22);animation:tx-pulse 1.4s ease-in-out infinite}
+.tx-step.active{color:#e2d3f2}
+.tx-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #302343}
+.tx-hash{color:#b57dee;font:11px var(--mono);letter-spacing:.02em;text-decoration:none}
+.tx-hash:hover{color:#e1caff;text-decoration:underline}
+.tx-cancel{border:0;padding:0;background:transparent;color:#ff9aa2;font:11px var(--mono);letter-spacing:.02em;text-decoration:underline;cursor:pointer}
+.tx-cancel:hover{color:#ffc6ca}
+@keyframes tx-pulse{50%{box-shadow:0 0 0 6px rgba(155,93,229,.08)}}
+@media(max-width:640px){.tx-steps{grid-template-columns:1fr 1fr;row-gap:12px}.tx-step + .tx-step::before{display:none}}
 
 .docs-main{padding-top:44px}
 .docs-layout{display:grid;grid-template-columns:220px 1fr;gap:26px;align-items:flex-start;margin-bottom:32px}
@@ -97,3 +107,68 @@ img.mark{background:transparent;border-radius:8px;object-fit:contain}
 /* Empty check-proposal result panel no longer stretches to match the tall
    proposal-form panel on desktop. */
 .result-panel{align-self:start}
+
+/* --- Typography cleanup ---------------------------------------------------
+   The app was covered in tiny mono uppercase labels. Kept uppercase where it
+   truly signals status (nav, section eyebrows, verdict badges, network chip,
+   CTA buttons); dropped it from form labels, right-side decorative tags,
+   meta rows, dates and IDs so real content stands out. */
+
+/* Form labels: sentence case with a legible size. */
+.inline-form label,
+.dialog-card label{
+  text-transform:none;letter-spacing:0;
+  font:12px/1.4 var(--font);color:#b8adca
+}
+
+/* Right-side header tag (was ADMIN ONLY / SAVED AFTER CHECK / PY-GENLAYER…). */
+.panel-head > span:last-child{
+  text-transform:none;letter-spacing:0;
+  font:12px var(--font);color:#8b7fa1
+}
+
+/* Policy card bottom row: was ACTIVE POLICY in caps mono. Now a soft label. */
+.policy-meta-row{
+  text-transform:none;letter-spacing:0;
+  font:12px var(--font);color:#9b8fb0
+}
+.policy-meta-row .status{
+  text-transform:none;letter-spacing:0;
+  font:12px var(--font)
+}
+
+/* Version item state (Active/Archived) reads as a normal tag. */
+.version-state{
+  text-transform:none !important;letter-spacing:0 !important;
+  font:11px var(--font) !important
+}
+.version-item strong{
+  font:14px var(--font);color:#e7d7fb;letter-spacing:0
+}
+.version-item span{
+  font:13px var(--font);color:#cfc2df
+}
+.version-item small{
+  font:12px/1.5 var(--font);color:#9b8fb0
+}
+
+/* Decision & result meta: dates and IDs read as text, not shouty labels. */
+.record-id{
+  text-transform:none;letter-spacing:0;
+  font:12px var(--font);color:#8b7fa1
+}
+.result-meta{
+  text-transform:none;letter-spacing:0;
+  font:12px var(--font);color:#9b8fb0
+}
+.decision-content small,
+.detail-time,
+.decision-head strong{
+  text-transform:none;letter-spacing:0
+}
+
+/* Footer: keep muted but readable at a friendlier size. */
+.footer{
+  text-transform:none;letter-spacing:0;
+  font:12px/1.4 var(--font);color:#8b7fa1
+}

@@ -98,6 +98,19 @@ export function humanizeWalletError(error) {
   return raw || 'The transaction could not be completed.';
 }
 
+// GenLayer validator lifecycle grouped into the four steps a user cares about.
+// Any raw status maps to one of: signing → broadcast → consensus → accepted.
+function mapStatus(raw) {
+  const s = String(raw || '').toUpperCase();
+  if (s === 'PENDING') return 'broadcast';
+  if (['PROPOSING', 'COMMITTING', 'REVEALING', 'LEADER_REVEALING',
+       'APPEAL_COMMITTING', 'APPEAL_REVEALING'].includes(s)) return 'consensus';
+  if (s === 'ACCEPTED' || s === 'FINALIZED') return 'accepted';
+  return 'broadcast';
+}
+
+const DECIDED = new Set(['ACCEPTED', 'FINALIZED', 'UNDETERMINED', 'CANCELED']);
+
 export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   const provider = browserProvider();
   const account = await getWalletAddress();
@@ -111,6 +124,7 @@ export async function writePolicyLayer(functionName, args = [], hooks = {}) {
     provider,
   });
 
+  hooks.onStatus?.('signing');
   const feeEstimate = await client.estimateTransactionFeesForWrite({
     account,
     address: POLICY_LAYER_ADDRESS,
@@ -130,16 +144,46 @@ export async function writePolicyLayer(functionName, args = [], hooks = {}) {
     },
   });
 
-  // Show the hash right away so the user can watch the tx on the explorer,
-  // and let them cancel the wait if it drags on. The tx itself is on chain;
-  // cancelling only stops us from blocking the UI.
+  // Show the hash the moment we have it, then poll the transaction so we
+  // can surface each real GenLayer state (PENDING → PROPOSING → COMMITTING →
+  // REVEALING → ACCEPTED) instead of blocking on waitForDecision. The user
+  // can Stop waiting at any point; the on-chain tx keeps running.
   hooks.onHash?.(hash);
-  const receipt = await Promise.race([
-    client.waitForDecision({ hash, interval: 3000, retries: 200 }),
-    new Promise((_, reject) => {
-      hooks.signal?.addEventListener('abort', () => reject(new Error('Wait cancelled')), { once: true });
-    }),
-  ]);
+  hooks.onStatus?.('broadcast');
 
+  const interval = 3000;
+  const maxWait = 10 * 60 * 1000;
+  const started = Date.now();
+  let lastStep = 'broadcast';
+  let receipt = null;
+
+  const isAborted = () => hooks.signal?.aborted;
+  while (true) {
+    if (isAborted()) throw new Error('Wait cancelled');
+    if (Date.now() - started > maxWait) {
+      throw new Error('The transaction is still running on GenLayer. Check the explorer for its final state.');
+    }
+    let tx = null;
+    try {
+      tx = await client.getTransaction({ hash });
+    } catch {
+      // Transient RPC hiccups — wait and retry, don't blow up the wait.
+    }
+    const raw = tx?.statusName || tx?.status;
+    if (raw) {
+      const step = mapStatus(raw);
+      if (step !== lastStep) {
+        lastStep = step;
+        hooks.onStatus?.(step);
+      }
+      if (DECIDED.has(String(raw).toUpperCase())) {
+        receipt = tx;
+        break;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+
+  hooks.onStatus?.('accepted');
   return { hash, receipt };
 }

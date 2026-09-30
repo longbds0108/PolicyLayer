@@ -126,31 +126,59 @@ function setFormMessage(form, message, kind = 'error') {
   node.textContent = message;
 }
 
-// Renders a running status row under the submit button while a write is in
-// flight: a spinner, the truncated tx hash (with a link to Studio), and a
-// cancel button that stops the wait — the tx itself keeps running on chain.
+// Renders a running status card under the submit button while a write is in
+// flight: a 4-step progress row (signing → broadcast → consensus → accepted),
+// the truncated tx hash with an explorer link, and a Stop waiting button
+// that unblocks the UI. The tx itself keeps running on chain.
+const TX_STEPS = [
+  { key: 'signing',   label: 'Sign in wallet' },
+  { key: 'broadcast', label: 'Broadcasting' },
+  { key: 'consensus', label: 'Validators reviewing' },
+  { key: 'accepted',  label: 'Verdict accepted' },
+];
+
 function attachTxStatus(form) {
   form.querySelector('.tx-status')?.remove();
   const status = document.createElement('div');
   status.className = 'tx-status';
   status.innerHTML = `
-    <span class="tx-spinner"></span>
-    <span class="tx-message">Waiting for the wallet to sign…</span>
-    <a class="tx-hash" hidden target="_blank" rel="noopener noreferrer"></a>
-    <button type="button" class="tx-cancel text-button" hidden>Stop waiting</button>
+    <ol class="tx-steps">
+      ${TX_STEPS.map((step) => `
+        <li class="tx-step" data-step="${step.key}">
+          <span class="tx-dot"></span><span class="tx-label">${step.label}</span>
+        </li>
+      `).join('')}
+    </ol>
+    <div class="tx-footer">
+      <a class="tx-hash" hidden target="_blank" rel="noopener noreferrer"></a>
+      <button type="button" class="tx-cancel text-button" hidden>Stop waiting</button>
+    </div>
   `;
   form.appendChild(status);
   const controller = new AbortController();
   status.querySelector('.tx-cancel').addEventListener('click', () => controller.abort());
+
+  let currentIndex = -1;
+  const advance = (key) => {
+    const nextIndex = TX_STEPS.findIndex((step) => step.key === key);
+    if (nextIndex <= currentIndex) return;
+    currentIndex = nextIndex;
+    status.querySelectorAll('.tx-step').forEach((el, i) => {
+      el.classList.remove('active', 'done');
+      if (i < currentIndex) el.classList.add('done');
+      if (i === currentIndex) el.classList.add('active');
+    });
+  };
+
   return {
     signal: controller.signal,
+    onStatus: advance,
     onHash(hash) {
       const short = `${hash.slice(0, 10)}…${hash.slice(-6)}`;
       const link = status.querySelector('.tx-hash');
-      link.textContent = short;
+      link.textContent = `Tx ${short} ↗`;
       link.href = `https://studio-next.genlayer.com/tx/${hash}`;
       link.hidden = false;
-      status.querySelector('.tx-message').textContent = 'Waiting for validators…';
       status.querySelector('.tx-cancel').hidden = false;
     },
     done() { status.remove(); },
