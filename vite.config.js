@@ -12,6 +12,7 @@ export default defineConfig({
         policies: resolve(process.cwd(), 'policies.html'),
         checkProposal: resolve(process.cwd(), 'check-proposal.html'),
         decisionLog: resolve(process.cwd(), 'decision-log.html'),
+        docs: resolve(process.cwd(), 'docs.html'),
       },
     },
   },

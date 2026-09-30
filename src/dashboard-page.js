@@ -216,7 +216,7 @@ function chrome(activeKey, content) {
       <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">${mobileNav}</nav>
       ${chainNotice}
       <main class="main">${content}</main>
-      <footer class="footer"><span>PolicyLayer · policy checking dapp</span><span>${chainState.available ? 'Reads and decisions from GenLayer Studio Dev' : 'Waiting for GenLayer · local data remains available'}</span></footer>
+      <footer class="footer"><span>PolicyLayer · policy checking dapp</span><span><a href="/docs.html">Policy docs</a> · <a href="https://github.com/longbds0108/PolicyLayer" target="_blank" rel="noopener noreferrer">GitHub</a></span></footer>
     </div>
   `;
   if (walletRoot) app.querySelector('#wallet-header-root')?.replaceWith(walletRoot);
