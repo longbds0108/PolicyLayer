@@ -1,3 +1,9 @@
+import {
+  GENLAYER_NETWORK_LABEL,
+  readPolicyLayer,
+  writePolicyLayer,
+} from './genlayer-client.js';
+
 const STORAGE_KEY = 'policylayer-local-policy-check-v1';
 
 const page = document.getElementById('app')?.dataset.page || 'policies';
@@ -35,8 +41,115 @@ function loadState() {
 
 let state = loadState();
 
+let chainState = {
+  available: false,
+  policy: null,
+  policies: [],
+  checks: [],
+  error: '',
+};
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function parseJsonLines(value) {
+  if (Array.isArray(value)) return value.filter((item) => item && typeof item === 'object');
+  if (value && typeof value === 'object') return [value];
+  return String(value || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function normalizeChainPolicy(policy, index = 0) {
+  if (!policy || typeof policy !== 'object') return null;
+  return {
+    id: `GEN-${String(index + 1).padStart(3, '0')}`,
+    title: String(policy.title || policy.policy_title || 'Untitled policy'),
+    version: String(policy.version || policy.policy_version || '—'),
+    text: String(policy.text || policy.policy_text || ''),
+    active: true,
+    createdAt: policy.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeChainCheck(check, index = 0) {
+  if (!check || typeof check !== 'object') return null;
+  return {
+    id: `GEN-CHK-${String(index + 1).padStart(3, '0')}`,
+    policyId: null,
+    policyTitle: String(check.policy_title || check.policyTitle || 'PolicyLayer policy'),
+    policyVersion: String(check.policy_version || check.policyVersion || '—'),
+    proposalText: String(check.proposal || check.proposalText || ''),
+    verdict: String(check.verdict || 'NEEDS DAO VOTE'),
+    reasoning: String(check.reasoning || ''),
+    createdAt: check.createdAt || new Date().toISOString(),
+  };
+}
+
+function displayPolicies() {
+  return chainState.available ? chainState.policies : state.policies;
+}
+
+function displayChecks() {
+  return chainState.available ? chainState.checks : state.checks;
+}
+
+async function hydrateChain(render = true) {
+  try {
+    const [active, history, log] = await Promise.all([
+      readPolicyLayer('get_active_policy'),
+      readPolicyLayer('get_policy_history'),
+      readPolicyLayer('get_decision_log'),
+    ]);
+    const historyPolicies = parseJsonLines(history).map(normalizeChainPolicy).filter(Boolean);
+    const activePolicyRecord = normalizeChainPolicy(active, historyPolicies.length);
+    const policies = historyPolicies.length
+      ? historyPolicies.map((item, index) => ({ ...item, active: index === historyPolicies.length - 1 }))
+      : activePolicyRecord ? [activePolicyRecord] : [];
+    if (activePolicyRecord && !policies.some((item) => item.version === activePolicyRecord.version && item.text === activePolicyRecord.text)) {
+      policies.push({ ...activePolicyRecord, active: true });
+    }
+    chainState = {
+      available: true,
+      policy: activePolicyRecord || policies.find((item) => item.active) || null,
+      policies: policies.map((item) => ({ ...item, active: item.version === (activePolicyRecord?.version || item.version) })),
+      checks: parseJsonLines(log).map(normalizeChainCheck).filter(Boolean).reverse(),
+      error: '',
+    };
+    if (render) renderPage();
+    return true;
+  } catch (error) {
+    chainState = { ...chainState, error: error?.message || 'GenLayer is unavailable' };
+    if (render) renderPage();
+    return false;
+  }
+}
+
+function renderPage() {
+  if (page === 'policies') policiesPage();
+  if (page === 'check-proposal') checkProposalPage();
+  if (page === 'decision-log') decisionLogPage();
+}
+
+function setFormMessage(form, message, kind = 'error') {
+  let node = form.querySelector('.form-message');
+  if (!node) {
+    node = document.createElement('p');
+    node.className = 'form-message';
+    form.appendChild(node);
+  }
+  node.className = `form-message ${kind}`;
+  node.textContent = message;
 }
 
 function escapeHtml(value = '') {
@@ -56,6 +169,7 @@ function formatDate(value) {
 }
 
 function activePolicy() {
+  if (chainState.available) return chainState.policy;
   return state.policies.find((policy) => policy.active) || state.policies[0] || null;
 }
 
@@ -71,6 +185,9 @@ function chrome(activeKey, content) {
   const nav = NAV_ITEMS.map((item) => `
     <a class="${item.key === activeKey ? 'active' : ''}" href="${item.href}">${item.label}</a>
   `).join('');
+  const chainNotice = chainState.error
+    ? `<div class="chain-alert"><strong>GenLayer unavailable</strong><span>${escapeHtml(chainState.error)}</span></div>`
+    : '';
 
   document.title = `PolicyLayer — ${NAV_ITEMS.find((item) => item.key === activeKey)?.label || 'Policies'}`;
   const app = document.getElementById('app');
@@ -81,12 +198,13 @@ function chrome(activeKey, content) {
         <a class="brand" href="/policies.html"><span class="mark">P</span><span>PolicyLayer</span></a>
         <nav class="app-nav" aria-label="Primary navigation">${nav}</nav>
         <div class="top-actions">
-          <span class="network"><i></i>Local browser mode</span>
+          <span class="network"><i></i>${chainState.available ? GENLAYER_NETWORK_LABEL : 'Local fallback'}</span>
           <div id="wallet-header-root"></div>
         </div>
       </header>
+      ${chainNotice}
       <main class="main">${content}</main>
-      <footer class="footer"><span>PolicyLayer · local policy prototype</span><span>No chain calls · data stays in this browser</span></footer>
+      <footer class="footer"><span>PolicyLayer · policy checking dapp</span><span>${chainState.available ? 'Reads and decisions from GenLayer Studio Dev' : 'Waiting for GenLayer · local data remains available'}</span></footer>
     </div>
   `;
 }
@@ -104,7 +222,7 @@ function policyCard(policy, compact = false) {
 }
 
 function policyHistory() {
-  const policies = [...state.policies].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const policies = [...displayPolicies()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   if (!policies.length) return '<div class="empty-state"><strong>No policy versions</strong></div>';
   return `<div class="version-list">${policies.map((policy) => `
     <article class="version-item ${policy.active ? 'active' : ''}">
@@ -138,25 +256,30 @@ function policiesPage() {
       </article>
     </section>
     <section class="panel">
-      <div class="panel-head"><div><span class="eyebrow">Version history</span><h2>Policy changes</h2></div><span>${state.policies.length} version${state.policies.length === 1 ? '' : 's'}</span></div>
+      <div class="panel-head"><div><span class="eyebrow">Version history</span><h2>Policy changes</h2></div><span>${displayPolicies().length} version${displayPolicies().length === 1 ? '' : 's'}</span></div>
       ${policyHistory()}
     </section>
   `);
 
-  document.getElementById('policy-form')?.addEventListener('submit', (event) => {
+  document.getElementById('policy-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const submit = event.currentTarget.querySelector('button[type="submit"]');
     const form = new FormData(event.currentTarget);
-    state.policies = state.policies.map((item) => ({ ...item, active: false }));
-    state.policies.push({
-      id: `PL-${String(state.policies.length + 1).padStart(3, '0')}`,
-      title: String(form.get('title')).trim(),
-      version: String(form.get('version')).trim(),
-      text: String(form.get('text')).trim(),
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
-    saveState();
-    policiesPage();
+    const title = String(form.get('title') || '').trim();
+    const version = String(form.get('version') || '').trim();
+    const text = String(form.get('text') || '').trim();
+    if (!title || !version || !text) return;
+    submit.disabled = true;
+    submit.textContent = 'Saving on GenLayer…';
+    try {
+      await writePolicyLayer('create_policy', [title, version, text]);
+      await hydrateChain(false);
+      renderPage();
+    } catch (error) {
+      setFormMessage(event.currentTarget, error?.message || 'Could not save this policy on GenLayer.');
+      submit.disabled = false;
+      submit.textContent = 'Save policy version ↗';
+    }
   });
 }
 
@@ -223,7 +346,7 @@ function resultCard(check) {
 
 function checkProposalPage() {
   const policy = activePolicy();
-  let latestCheck = null;
+  const latestCheck = displayChecks()[0] || null;
   chrome('check-proposal', `
     <section class="page-heading">
       <div><span class="eyebrow">02 / POLICY CHECK</span><h1>Check a proposal<br /><em>before it moves.</em></h1><p>Dán nội dung proposal vào đây. Công cụ sẽ đối chiếu với policy đang active và lưu verdict cùng reasoning vào Decision Log.</p></div>
@@ -231,44 +354,42 @@ function checkProposalPage() {
     </section>
     <section class="check-layout">
       <article class="panel check-form">
-        <div class="panel-head"><div><span class="eyebrow">Member action</span><h2>Proposal content</h2></div><span>Local check</span></div>
+        <div class="panel-head"><div><span class="eyebrow">Member action</span><h2>Proposal content</h2></div><span>${chainState.available ? 'GenLayer review' : 'Waiting for network'}</span></div>
         <form id="check-form" class="inline-form">
           <label>Paste proposal<textarea name="proposal" required rows="14" placeholder="Example: Fund the open-source contributor grant with 500 GEN. Recipient and source code are public, and the proposal will go through DAO vote."></textarea></label>
           <div class="policy-preview"><span class="preview-label">Checked against</span>${policyCard(policy, true)}</div>
           <button class="primary" type="submit">Check policy ↗</button>
         </form>
-        <p class="muted-note">This prototype stores data in localStorage only. No treasury action, vote creation, or GenLayer call is triggered.</p>
+        <p class="muted-note">The proposal is checked by the deployed PolicyLayer contract. No treasury action or vote is created automatically.</p>
       </article>
       <aside class="panel result-panel">
         <div class="panel-head"><div><span class="eyebrow">Decision output</span><h2>Verdict</h2></div><span>Saved after check</span></div>
-        <div id="result-root">${resultCard(null)}</div>
+        <div id="result-root">${resultCard(latestCheck)}</div>
       </aside>
     </section>
   `);
 
-  document.getElementById('check-form')?.addEventListener('submit', (event) => {
+  document.getElementById('check-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const proposal = String(new FormData(event.currentTarget).get('proposal') || '').trim();
-    const result = evaluateProposal(activePolicy(), proposal);
-    const currentPolicy = activePolicy();
-    latestCheck = {
-      id: `CHK-${String(state.checks.length + 1).padStart(3, '0')}`,
-      policyId: currentPolicy?.id || null,
-      policyTitle: currentPolicy?.title || 'No policy',
-      policyVersion: currentPolicy?.version || '—',
-      proposalText: proposal,
-      verdict: result.verdict,
-      reasoning: result.reasoning,
-      createdAt: new Date().toISOString(),
-    };
-    state.checks.unshift(latestCheck);
-    saveState();
-    document.getElementById('result-root').innerHTML = resultCard(latestCheck);
+    if (!proposal) return;
+    const submit = event.currentTarget.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    submit.textContent = 'Checking on GenLayer…';
+    try {
+      await writePolicyLayer('check_proposal', [proposal]);
+      await hydrateChain(false);
+      renderPage();
+    } catch (error) {
+      setFormMessage(event.currentTarget, error?.message || 'Could not check this proposal on GenLayer.');
+      submit.disabled = false;
+      submit.textContent = 'Check policy ↗';
+    }
   });
 }
 
 function decisionLogPage() {
-  const checks = [...state.checks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const checks = [...displayChecks()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const content = checks.length ? `<div class="decision-list decision-log-list">${checks.map((check) => `
     <article class="check-record">
       <div class="record-top"><div><span class="record-id">${escapeHtml(check.id)} · ${formatDate(check.createdAt)}</span><h3>${escapeHtml(check.policyTitle)} <small>v${escapeHtml(check.policyVersion)}</small></h3></div><span class="verdict ${verdictClass(check.verdict)}">${verdictLabel(check.verdict)}</span></div>
@@ -289,6 +410,5 @@ function decisionLogPage() {
   `);
 }
 
-if (page === 'policies') policiesPage();
-if (page === 'check-proposal') checkProposalPage();
-if (page === 'decision-log') decisionLogPage();
+renderPage();
+void hydrateChain();
