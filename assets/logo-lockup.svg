@@ -1,25 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 48" role="img" aria-label="PolicyLayer">
-  <defs>
-    <linearGradient id="plLockupBg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#9B5DE5"/>
-      <stop offset="100%" stop-color="#3F91FF"/>
-    </linearGradient>
-  </defs>
-  <!-- Mark, sized to match wordmark cap height. -->
-  <g transform="translate(4,8)">
-    <rect x="0" y="0" width="32" height="32" rx="8" fill="url(#plLockupBg)"/>
-    <g fill="#ffffff">
-      <rect x="5"  y="7"    width="18" height="3" rx="1.5" opacity="0.95"/>
-      <rect x="5"  y="12.5" width="13" height="3" rx="1.5" opacity="0.72"/>
-      <rect x="5"  y="18"   width="9"  height="3" rx="1.5" opacity="0.52"/>
-    </g>
-    <circle cx="23" cy="8.5" r="1.9" fill="#4FD1C5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 140" role="img" aria-label="PolicyLayer">
+  <!-- Mark on the left -->
+  <g transform="translate(6,0)">
+    <path fill="#1E2657"
+      d="M32 16 H96 C104 16 110 22 110 30 V34 C110 38 108 41 105 43 L70 60 C66 62 62 62 58 60 L23 43 C20 41 18 38 18 34 V30 C18 22 24 16 32 16 Z" />
+    <path fill="#4EDBA1"
+      d="M18 56 C18 54 20 53 22 54 L58 71 C62 73 66 73 70 71 L106 54 C108 53 110 54 110 56 V70 C110 74 108 77 105 79 L70 96 C66 98 62 98 58 96 L23 79 C20 77 18 74 18 70 Z" />
+    <path fill="#1E2657"
+      d="M18 92 C18 90 20 89 22 90 L58 107 C62 109 66 109 70 107 L106 90 C108 89 110 90 110 92 V102 C110 116 100 128 82 132 C74 134 70 134 64 134 C58 134 54 134 46 132 C28 128 18 116 18 102 Z" />
   </g>
-  <!-- Wordmark. Uses system serif so it reads consistently even where the
-       Fraunces webfont is not loaded. -->
-  <text x="48" y="32"
-        font-family="Fraunces, 'Times New Roman', Georgia, serif"
-        font-size="24" font-weight="600"
-        letter-spacing="-0.5"
-        fill="#F4F2F7">Policy<tspan fill="#B57DEE">Layer</tspan></text>
+  <!-- Wordmark: bold sans-serif in the same navy as the shield. -->
+  <text x="140" y="94"
+        font-family="'Inter Tight','Inter',system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif"
+        font-weight="800" font-size="72" letter-spacing="-2.5" fill="#1E2657">PolicyLayer</text>
 </svg>
