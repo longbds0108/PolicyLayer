@@ -96,7 +96,7 @@ function WalletHeader() {
             </button>
           );
         }
-        return <button className="policy-wallet-connect" onClick={onLanding ? startOnboarding : openConnectModal} type="button">Get started <span>↗</span></button>;
+        return <button className="policy-wallet-connect" onClick={onLanding ? startOnboarding : openConnectModal} type="button">{onLanding ? 'Get started' : 'Connect wallet'} <span>↗</span></button>;
       }}
     </ConnectButton.Custom>
   );

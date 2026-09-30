@@ -226,6 +226,11 @@ function chrome(activeKey, content) {
     const open = menu?.classList.toggle('open');
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
+  // Close the mobile menu after the user picks a link.
+  menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => {
+    menu.classList.remove('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+  }));
 }
 
 function policyCard(policy, compact = false) {
@@ -236,7 +241,7 @@ function policyCard(policy, compact = false) {
   return `
     <div class="policy-title"><strong>${escapeHtml(policy.title)}</strong><span>v${escapeHtml(policy.version)}</span></div>
     <p class="policy-description ${compact ? 'policy-description-compact' : ''}">${escapeHtml(policy.text)}</p>
-    <div class="policy-meta-row"><span class="status">Active policy</span><span>Created ${formatDate(policy.createdAt)}</span></div>
+    <div class="policy-meta-row"><span class="status">Active policy</span></div>
   `;
 }
 
@@ -247,7 +252,7 @@ function policyHistory() {
     <article class="version-item ${policy.active ? 'active' : ''}">
       <div><strong>v${escapeHtml(policy.version)}</strong><span>${escapeHtml(policy.title)}</span></div>
       <span class="version-state">${policy.active ? 'Active' : 'Archived'}</span>
-      <small>${formatDate(policy.createdAt)} · ${escapeHtml(policy.text)}</small>
+      <small>${escapeHtml(policy.text)}</small>
     </article>
   `).join('')}</div>`;
 }
@@ -261,7 +266,7 @@ function policiesPage() {
     </section>
     <section class="page-grid">
       <article class="panel active-policy">
-        <div class="panel-head"><div><span class="eyebrow">Active policy</span><h2>${policy ? 'Current rules' : 'Start your registry'}</h2></div><span>${policy ? `Version ${escapeHtml(policy.version)}` : 'Empty'}</span></div>
+        <div class="panel-head"><div><span class="eyebrow">Active policy</span><h2>${policy ? 'Current rules' : 'Start your registry'}</h2></div><span>${policy ? '' : 'Empty'}</span></div>
         ${policyCard(policy)}
       </article>
       <article class="panel">

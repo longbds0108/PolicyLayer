@@ -56,3 +56,44 @@
 @media(max-width:900px){.docs-layout{grid-template-columns:1fr}.docs-toc{position:static}.docs-grid{grid-template-columns:1fr}.verdict-grid{grid-template-columns:1fr}}
 
 img.mark{background:transparent;border-radius:8px;object-fit:contain}
+
+/* Fix docs mobile: allow code, tables and long identifiers to wrap or scroll
+   inside their box so the whole page never scrolls sideways. */
+.docs-body{min-width:0;overflow-wrap:anywhere}
+.docs-body code{overflow-wrap:anywhere;word-break:break-word}
+.docs-body .page-link{overflow-wrap:anywhere}
+.docs-grid{min-width:0}
+.docs-grid>div{min-width:0;overflow-wrap:anywhere}
+.code-block{overflow-x:auto;max-width:100%}
+.verdict-grid{min-width:0}
+
+/* Sticky topbar (72px) + optional TOC below would hide the section heading
+   on anchor jumps. Push the scroll target down. */
+.docs-body section{scroll-margin-top:88px}
+
+/* Check Proposal desktop: don't reserve a huge blank area when the verdict
+   panel is empty — let the panel size itself to the (small) empty state. */
+.result-panel{min-height:0}
+
+/* Bigger, safer tap target for the mobile menu button and better focus ring. */
+.mobile-nav-toggle:focus-visible,.nav-burger:focus-visible{outline:2px solid #4EDBA1;outline-offset:2px}
+
+/* The secondary button was near-invisible on the dark background: a
+   line-coloured border on transparent black. Bump both. */
+.secondary{border-color:#4a3f60;background:rgba(155,93,229,.08);color:#dcd1eb}
+.secondary:hover{border-color:#8f6bd8;background:rgba(155,93,229,.16);color:#f2ecfa}
+
+/* Kill the horizontal scroll caused by the code-block on narrow docs pages.
+   Every grid ancestor needs min-width:0 so its child can shrink below its
+   intrinsic content width, otherwise the code-block's long single line pushes
+   the whole page wider than the viewport. */
+.main.docs-main{min-width:0}
+.docs-layout{min-width:0}
+.docs-toc{min-width:0}
+.docs-body>section{min-width:0}
+.docs-body .panel{min-width:0}
+.code-block{min-width:0}
+
+/* Empty check-proposal result panel no longer stretches to match the tall
+   proposal-form panel on desktop. */
+.result-panel{align-self:start}
