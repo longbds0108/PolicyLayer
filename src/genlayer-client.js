@@ -1,7 +1,7 @@
 import { createClient } from 'genlayer-js';
 import { studioDevnet } from 'genlayer-js/chains';
 
-export const POLICY_LAYER_ADDRESS = '0x6AA71FB8Cd16123f88Ab0CAD8Fe825eBC3260013';
+export const POLICY_LAYER_ADDRESS = '0x9072A8483eE328c535693218F458B6c5293182F3';
 export const GENLAYER_NETWORK_LABEL = 'GenLayer Studio Dev';
 
 function browserProvider() {

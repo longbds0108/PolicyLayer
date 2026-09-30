@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 import json
+import re
 
 import genlayer as gl
 from genlayer.storage import allow as allow_storage
@@ -109,6 +110,16 @@ class PolicyLayer(gl.contract.Contract):
         policy_version = self.policy_version
         policy_text = self.policy_text
 
+        # Number each policy sentence so validators can cite a rule by index.
+        rules = [
+            rule.strip()
+            for rule in re.split(r"(?<=[.!?])\s+|\n+", policy_text)
+            if rule.strip()
+        ]
+        numbered_rules = "\n".join(
+            f"{index + 1}. {rule}" for index, rule in enumerate(rules)
+        )
+
         def assess_proposal() -> str:
             task = f"""
 Review this DAO proposal against the active policy.
@@ -118,21 +129,20 @@ funds, block treasury operations, or create a vote.
 
 Active policy title: {policy_title}
 Active policy version: {policy_version}
-Active policy:
-{policy_text}
+Active policy rules:
+{numbered_rules}
 
 Proposal:
 {proposal}
 
 Return only valid JSON with exactly this shape:
-{{
-  "verdict": "COMPLIANT|CONFLICT|NEEDS DAO VOTE",
-  "reasoning": "brief explanation; if CONFLICT, name the violated policy rule"
-}}
+{{"verdict": "COMPLIANT|CONFLICT|NEEDS DAO VOTE", "rule": 0}}
 
 Use COMPLIANT when the proposal clearly follows the policy.
-Use CONFLICT when it clearly violates a policy rule.
+Use CONFLICT when it clearly violates a policy rule, and set "rule" to the
+number of the first violated rule.
 Use NEEDS DAO VOTE when the policy or proposal is ambiguous or needs an exception.
+Set "rule" to 0 unless the verdict is CONFLICT.
 """
 
             raw_result = gl.nondet.exec_prompt(task)
@@ -143,27 +153,38 @@ Use NEEDS DAO VOTE when the policy or proposal is ambiguous or needs an exceptio
                 parsed_result = {}
 
             verdict = parsed_result.get("verdict")
-            reasoning = parsed_result.get("reasoning")
             if verdict not in ("COMPLIANT", "CONFLICT", "NEEDS DAO VOTE"):
                 verdict = "NEEDS DAO VOTE"
-                reasoning = "The validator response did not contain an accepted verdict."
-            if not isinstance(reasoning, str) or not reasoning.strip():
-                reasoning = "The proposal could not be assessed clearly."
+            rule = parsed_result.get("rule")
+            if verdict != "CONFLICT" or not isinstance(rule, int) or not 1 <= rule <= len(rules):
+                rule = 0
 
-            return json.dumps(
-                {"verdict": verdict, "reasoning": reasoning.strip()},
-                sort_keys=True,
-            )
+            # Only short, canonical fields so strict_eq can reach consensus.
+            return json.dumps({"verdict": verdict, "rule": rule}, sort_keys=True)
 
         result = json.loads(gl.eq_principle.strict_eq(assess_proposal))
+        verdict = result["verdict"]
+        rule = result["rule"]
+        policy_label = f'"{policy_title}" v{policy_version}'
+        if verdict == "COMPLIANT":
+            reasoning = f"The proposal follows the rules of policy {policy_label}."
+        elif verdict == "CONFLICT" and rule:
+            reasoning = f'The proposal violates rule {rule} of policy {policy_label}: "{rules[rule - 1]}"'
+        elif verdict == "CONFLICT":
+            reasoning = f"The proposal violates policy {policy_label}."
+        else:
+            reasoning = (
+                f"Policy {policy_label} or the proposal is ambiguous or needs an "
+                "exception. The DAO should vote on it."
+            )
         decision = Decision(
             id="DEC-" + str(len(self.decision_log) + 1),
             submitter=gl.message.sender_address.as_hex,
             policy_title=policy_title,
             policy_version=policy_version,
             proposal=proposal,
-            verdict=result["verdict"],
-            reasoning=result["reasoning"],
+            verdict=verdict,
+            reasoning=reasoning,
         )
         self.decision_log.append(decision)
 
