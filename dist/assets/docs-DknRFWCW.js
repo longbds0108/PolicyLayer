@@ -3,7 +3,7 @@ import{G as o,P as t}from"./en_US-SK3WV2N3-CZO3Mzyn.js";/* empty css            
   `).join("")}function p(){return c.map(e=>`<li><a href="#${e.id}">${e.label}</a></li>`).join("")}function h(){document.title="PolicyLayer — Docs";const e=document.getElementById("app");if(!e)return;e.innerHTML=`
     <div class="shell">
       <header class="topbar">
-        <a class="brand" href="/"><span class="mark">P</span><span>PolicyLayer</span></a>
+        <a class="brand" href="/"><img class="mark" src="/assets/logo-mark.svg" alt="" width="26" height="26" /><span>PolicyLayer</span></a>
         <nav class="app-nav" aria-label="Primary navigation">${i("docs")}</nav>
         <div class="top-actions">
           <span class="network"><i></i>${o}</span>

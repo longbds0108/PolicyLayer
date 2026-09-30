@@ -54,3 +54,5 @@
 .verdict-card p{margin:0;color:#c9becf;font-size:13px;line-height:1.55}
 .docs-body .verdict{align-self:flex-start}
 @media(max-width:900px){.docs-layout{grid-template-columns:1fr}.docs-toc{position:static}.docs-grid{grid-template-columns:1fr}.verdict-grid{grid-template-columns:1fr}}
+
+img.mark{background:transparent;border-radius:8px;object-fit:contain}

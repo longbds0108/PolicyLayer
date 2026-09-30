@@ -205,7 +205,7 @@ function chrome(activeKey, content) {
   app.innerHTML = `
     <div class="shell">
       <header class="topbar">
-        <a class="brand" href="/"><span class="mark">P</span><span>PolicyLayer</span></a>
+        <a class="brand" href="/"><img class="mark" src="/assets/logo-mark.svg" alt="" width="26" height="26" /><span>PolicyLayer</span></a>
         <nav class="app-nav" aria-label="Primary navigation">${nav}</nav>
         <div class="top-actions">
           <span class="network"><i></i>${chainState.available ? GENLAYER_NETWORK_LABEL : 'Local fallback'}</span>
