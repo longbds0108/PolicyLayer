@@ -1,0 +1,10 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/policies", "destination": "/policies.html" },
+    { "source": "/check-proposal", "destination": "/check-proposal.html" },
+    { "source": "/decision-log", "destination": "/decision-log.html" },
+    { "source": "/dashboard", "destination": "/dashboard.html" }
+  ]
+}
