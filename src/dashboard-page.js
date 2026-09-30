@@ -15,32 +15,8 @@ const NAV_ITEMS = [
   { key: 'decision-log', label: 'Decision Log', href: '/decision-log.html' },
 ];
 
-const initialState = {
-  policies: [
-    {
-      id: 'PL-001',
-      title: 'Treasury Governance Policy',
-      version: '1.0',
-      text: 'Every treasury proposal must include a public source link and a clear recipient. Transfers to a personal wallet are not allowed. Any exception requires a DAO vote.',
-      active: true,
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  checks: [],
-};
-
-function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    if (saved?.policies && Array.isArray(saved.checks)) return saved;
-  } catch {
-    // Ignore invalid local data and restore the demo state.
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initialState));
-  return structuredClone(initialState);
-}
-
-let state = loadState();
+// Local fallback shown while the chain is still loading; it holds no data.
+let state = { policies: [], checks: [] };
 
 let chainState = {
   available: false,
@@ -49,10 +25,6 @@ let chainState = {
   checks: [],
   error: '',
 };
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
 
 function parseJsonLines(value) {
   if (Array.isArray(value)) return value.filter((item) => item && typeof item === 'object');
@@ -163,7 +135,7 @@ function escapeHtml(value = '') {
 }
 
 function formatDate(value) {
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
@@ -186,6 +158,9 @@ function chrome(activeKey, content) {
   const nav = NAV_ITEMS.map((item) => `
     <a class="${item.key === activeKey ? 'active' : ''}" href="${item.href}">${item.label}</a>
   `).join('');
+  const mobileNav = NAV_ITEMS.map((item) => `
+    <a class="${item.key === activeKey ? 'active' : ''}" href="${item.href}">${item.label}</a>
+  `).join('');
   const chainNotice = chainState.error
     ? `<div class="chain-alert"><strong>GenLayer unavailable</strong><span>${escapeHtml(chainState.error)}</span></div>`
     : '';
@@ -203,14 +178,22 @@ function chrome(activeKey, content) {
         <div class="top-actions">
           <span class="network"><i></i>${chainState.available ? GENLAYER_NETWORK_LABEL : 'Local fallback'}</span>
           <div id="wallet-header-root"></div>
+          <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-label="Open menu" aria-expanded="false">☰</button>
         </div>
       </header>
+      <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">${mobileNav}</nav>
       ${chainNotice}
       <main class="main">${content}</main>
       <footer class="footer"><span>PolicyLayer · policy checking dapp</span><span>${chainState.available ? 'Reads and decisions from GenLayer Studio Dev' : 'Waiting for GenLayer · local data remains available'}</span></footer>
     </div>
   `;
   if (walletRoot) app.querySelector('#wallet-header-root')?.replaceWith(walletRoot);
+  const toggle = app.querySelector('#mobileNavToggle');
+  const menu = app.querySelector('#mobileNav');
+  toggle?.addEventListener('click', () => {
+    const open = menu?.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
 }
 
 function policyCard(policy, compact = false) {
@@ -287,61 +270,12 @@ function policiesPage() {
   });
 }
 
-function hasAny(text, patterns) {
-  return patterns.some((pattern) => pattern.test(text));
-}
-
-function evaluateProposal(policy, proposal) {
-  if (!policy) {
-    return { verdict: 'NEEDS DAO VOTE', reasoning: 'Chưa có policy active để đối chiếu proposal. DAO cần tạo policy trước khi kết luận.' };
-  }
-
-  const policyText = policy.text.toLowerCase();
-  const proposalText = proposal.toLowerCase();
-  const ambiguous = [
-    /\bmaybe\b/, /\bperhaps\b/, /\bunclear\b/, /\bdepends\b/, /\bcase[- ]by[- ]case\b/, /\bexception\b/, /\bngoại lệ\b/, /\bcó thể\b/, /\bchưa rõ\b/, /\btùy trường hợp\b/, /\bkhông chắc\b/, /\bunknown\b/,
-  ];
-  if (hasAny(policyText, ambiguous) || hasAny(proposalText, ambiguous)) {
-    return {
-      verdict: 'NEEDS DAO VOTE',
-      reasoning: `Policy “${policy.title}” v${policy.version} hoặc proposal có ngôn ngữ mơ hồ/ngoại lệ. Không tự suy diễn; cần DAO vote để quyết định.`,
-    };
-  }
-
-  const violations = [
-    { pattern: /(without|skip|bypass|no)\s+(a\s+)?(dao\s+)?vote|không\s+(cần|có)\s+(dao\s+)?vote|bỏ qua\s+(dao\s+)?vote/, reason: 'proposal có ý định bỏ qua DAO vote' },
-    { pattern: /(personal|private)\s+(wallet|account)|ví\s+(cá nhân|riêng)|tài khoản cá nhân/, reason: 'recipient là ví/tài khoản cá nhân' },
-    { pattern: /(secret|private|confidential|ẩn danh|không công khai)/, reason: 'proposal có nội dung hoặc recipient không công khai' },
-    { pattern: /(bypass|circumvent|trái với|vi phạm|không tuân thủ)/, reason: 'proposal tự mô tả hành vi đi ngược policy' },
-  ];
-  const violation = violations.find((item) => item.pattern.test(proposalText));
-  if (violation) {
-    return {
-      verdict: 'CONFLICT',
-      reasoning: `Xung đột với policy “${policy.title}” v${policy.version}: ${violation.reason}. Cần chỉnh proposal trước khi gửi tiếp.`,
-    };
-  }
-
-  const policyHasExplicitRules = /\b(must|must not|required|not allowed|prohibited|only|phải|không được|bắt buộc|chỉ được|cấm)\b/.test(policyText);
-  if (!policyHasExplicitRules || proposal.trim().length < 24) {
-    return {
-      verdict: 'NEEDS DAO VOTE',
-      reasoning: `Policy “${policy.title}” v${policy.version} chưa đủ rõ để đánh giá chắc chắn proposal này. Đưa ra DAO vote để cộng đồng quyết định.`,
-    };
-  }
-
-  return {
-    verdict: 'COMPLIANT',
-    reasoning: `Proposal không phát hiện xung đột với các rule rõ ràng trong policy “${policy.title}” v${policy.version}. Kết quả này được tạo bởi local rule checker để test flow; chưa gọi GenLayer.`,
-  };
-}
-
 function resultCard(check) {
-  if (!check) return '<div class="empty-state"><div class="empty-mark">✓</div><strong>Ready to check</strong><p>Kết quả và reasoning sẽ xuất hiện ở đây sau khi bạn bấm Check policy.</p></div>';
+  if (!check) return '<div class="empty-state"><div class="empty-mark">✓</div><strong>Ready to check</strong><p>The verdict and reasoning will appear here after you click Check policy.</p></div>';
   return `
     <div class="result-card ${verdictClass(check.verdict)}">
       <div class="result-top"><span class="eyebrow">Policy verdict</span><span class="verdict ${verdictClass(check.verdict)}">${verdictLabel(check.verdict)}</span></div>
-      <h2>${escapeHtml(check.verdict === 'COMPLIANT' ? 'Proposal phù hợp policy' : check.verdict === 'CONFLICT' ? 'Proposal cần chỉnh sửa' : 'Cần quyết định của DAO')}</h2>
+      <h2>${escapeHtml(check.verdict === 'COMPLIANT' ? 'Proposal follows the policy' : check.verdict === 'CONFLICT' ? 'Proposal must be revised' : 'DAO decision required')}</h2>
       <p>${escapeHtml(check.reasoning)}</p>
       <div class="result-meta"><span>Policy v${escapeHtml(check.policyVersion)}</span><span>${formatDate(check.createdAt)}</span></div>
     </div>
@@ -353,7 +287,7 @@ function checkProposalPage() {
   const latestCheck = displayChecks()[0] || null;
   chrome('check-proposal', `
     <section class="page-heading">
-      <div><span class="eyebrow">02 / POLICY CHECK</span><h1>Check a proposal<br /><em>before it moves.</em></h1><p>Dán nội dung proposal vào đây. Công cụ sẽ đối chiếu với policy đang active và lưu verdict cùng reasoning vào Decision Log.</p></div>
+      <div><span class="eyebrow">02 / POLICY CHECK</span><h1>Check a proposal<br /><em>before it moves.</em></h1><p>Paste the proposal text. It is checked against the active policy, and the verdict plus reasoning are stored in the Decision Log.</p></div>
       <a class="secondary" href="/decision-log.html">Open decision log ↗</a>
     </section>
     <section class="check-layout">
@@ -404,7 +338,7 @@ function decisionLogPage() {
 
   chrome('decision-log', `
     <section class="page-heading">
-      <div><span class="eyebrow">03 / DECISION LOG</span><h1>Every verdict<br /><em>has a memory.</em></h1><p>Lịch sử local của các lần check: proposal, policy version, verdict và reasoning được lưu để cộng đồng có thể kiểm tra lại.</p></div>
+      <div><span class="eyebrow">03 / DECISION LOG</span><h1>Every verdict<br /><em>has a memory.</em></h1><p>A history of every policy check: proposal, policy version, verdict and reasoning, kept on chain for the community to audit.</p></div>
       <a class="secondary" href="/check-proposal.html">New policy check ↗</a>
     </section>
     <section class="panel">
