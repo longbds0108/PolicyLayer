@@ -73,7 +73,32 @@ export async function readPolicyLayer(functionName, args = []) {
   });
 }
 
-export async function writePolicyLayer(functionName, args = []) {
+// Turn opaque wallet / RPC errors into a sentence a DAO member can act on.
+export function humanizeWalletError(error) {
+  const code = error?.code ?? error?.cause?.code ?? error?.data?.originalError?.code;
+  const raw = String(error?.shortMessage || error?.message || error || '').trim();
+  if (code === 4001 || /user rejected|user denied|rejected by user/i.test(raw)) {
+    return 'Wallet request was rejected. Approve the popup to continue.';
+  }
+  if (code === -32002 || /already pending|request of type/i.test(raw)) {
+    return 'A wallet request is already open. Finish it, then try again.';
+  }
+  if (/insufficient funds|insufficient balance/i.test(raw)) {
+    return 'The wallet does not have enough GEN to pay this transaction fee.';
+  }
+  if (/only the DAO admin/i.test(raw)) {
+    return 'Only the DAO admin (the wallet that deployed the contract) can publish a new policy.';
+  }
+  if (/at least \d+ characters/i.test(raw)) {
+    return raw.replace(/.*UserError:\s*/, '');
+  }
+  if (/UserError:/.test(raw)) {
+    return raw.split('UserError:').pop().trim();
+  }
+  return raw || 'The transaction could not be completed.';
+}
+
+export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   const provider = browserProvider();
   const account = await getWalletAddress();
   // Sending a tx from the wrong chain either fails with a cryptic error or,
@@ -105,11 +130,16 @@ export async function writePolicyLayer(functionName, args = []) {
     },
   });
 
-  const receipt = await client.waitForDecision({
-    hash,
-    interval: 3000,
-    retries: 200,
-  });
+  // Show the hash right away so the user can watch the tx on the explorer,
+  // and let them cancel the wait if it drags on. The tx itself is on chain;
+  // cancelling only stops us from blocking the UI.
+  hooks.onHash?.(hash);
+  const receipt = await Promise.race([
+    client.waitForDecision({ hash, interval: 3000, retries: 200 }),
+    new Promise((_, reject) => {
+      hooks.signal?.addEventListener('abort', () => reject(new Error('Wait cancelled')), { once: true });
+    }),
+  ]);
 
   return { hash, receipt };
 }

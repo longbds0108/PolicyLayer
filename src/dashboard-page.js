@@ -1,5 +1,6 @@
 import {
   GENLAYER_NETWORK_LABEL,
+  humanizeWalletError,
   readPolicyLayer,
   writePolicyLayer,
 } from './genlayer-client.js';
@@ -123,6 +124,37 @@ function setFormMessage(form, message, kind = 'error') {
   }
   node.className = `form-message ${kind}`;
   node.textContent = message;
+}
+
+// Renders a running status row under the submit button while a write is in
+// flight: a spinner, the truncated tx hash (with a link to Studio), and a
+// cancel button that stops the wait — the tx itself keeps running on chain.
+function attachTxStatus(form) {
+  form.querySelector('.tx-status')?.remove();
+  const status = document.createElement('div');
+  status.className = 'tx-status';
+  status.innerHTML = `
+    <span class="tx-spinner"></span>
+    <span class="tx-message">Waiting for the wallet to sign…</span>
+    <a class="tx-hash" hidden target="_blank" rel="noopener noreferrer"></a>
+    <button type="button" class="tx-cancel text-button" hidden>Stop waiting</button>
+  `;
+  form.appendChild(status);
+  const controller = new AbortController();
+  status.querySelector('.tx-cancel').addEventListener('click', () => controller.abort());
+  return {
+    signal: controller.signal,
+    onHash(hash) {
+      const short = `${hash.slice(0, 10)}…${hash.slice(-6)}`;
+      const link = status.querySelector('.tx-hash');
+      link.textContent = short;
+      link.href = `https://studio-next.genlayer.com/tx/${hash}`;
+      link.hidden = false;
+      status.querySelector('.tx-message').textContent = 'Waiting for validators…';
+      status.querySelector('.tx-cancel').hidden = false;
+    },
+    done() { status.remove(); },
+  };
 }
 
 function escapeHtml(value = '') {
@@ -250,20 +282,25 @@ function policiesPage() {
 
   document.getElementById('policy-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const submit = event.currentTarget.querySelector('button[type="submit"]');
-    const form = new FormData(event.currentTarget);
+    const formEl = event.currentTarget;
+    const submit = formEl.querySelector('button[type="submit"]');
+    const form = new FormData(formEl);
     const title = String(form.get('title') || '').trim();
     const version = String(form.get('version') || '').trim();
     const text = String(form.get('text') || '').trim();
     if (!title || !version || !text) return;
+    formEl.querySelector('.form-message')?.remove();
     submit.disabled = true;
     submit.textContent = 'Saving on GenLayer…';
+    const tx = attachTxStatus(formEl);
     try {
-      await writePolicyLayer('create_policy', [title, version, text]);
+      await writePolicyLayer('create_policy', [title, version, text], tx);
+      tx.done();
       await hydrateChain(false);
       renderPage();
     } catch (error) {
-      setFormMessage(event.currentTarget, error?.message || 'Could not save this policy on GenLayer.');
+      tx.done();
+      setFormMessage(formEl, humanizeWalletError(error));
       submit.disabled = false;
       submit.textContent = 'Save policy version ↗';
     }
@@ -309,17 +346,26 @@ function checkProposalPage() {
 
   document.getElementById('check-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const proposal = String(new FormData(event.currentTarget).get('proposal') || '').trim();
+    const formEl = event.currentTarget;
+    const proposal = String(new FormData(formEl).get('proposal') || '').trim();
     if (!proposal) return;
-    const submit = event.currentTarget.querySelector('button[type="submit"]');
+    formEl.querySelector('.form-message')?.remove();
+    if (proposal.length < 24) {
+      setFormMessage(formEl, 'Proposal must be at least 24 characters long. Add more detail so validators can review it.');
+      return;
+    }
+    const submit = formEl.querySelector('button[type="submit"]');
     submit.disabled = true;
     submit.textContent = 'Checking on GenLayer…';
+    const tx = attachTxStatus(formEl);
     try {
-      await writePolicyLayer('check_proposal', [proposal]);
+      await writePolicyLayer('check_proposal', [proposal], tx);
+      tx.done();
       await hydrateChain(false);
       renderPage();
     } catch (error) {
-      setFormMessage(event.currentTarget, error?.message || 'Could not check this proposal on GenLayer.');
+      tx.done();
+      setFormMessage(formEl, humanizeWalletError(error));
       submit.disabled = false;
       submit.textContent = 'Check policy ↗';
     }

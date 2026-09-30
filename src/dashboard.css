@@ -13,3 +13,11 @@
 .mobile-nav a{padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font:11px var(--mono);letter-spacing:.05em;text-transform:uppercase}
 .mobile-nav a.active{border-color:#5a4075;color:#fff;background:#1b1425}
 @media(max-width:900px){.mobile-nav-toggle{display:flex}.mobile-nav.open{display:flex;position:sticky;top:72px;z-index:4}}
+
+.tx-status{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:11px 12px;border:1px dashed #5a4075;background:#9b5de50a;color:#d8bdff;font:11px var(--mono);letter-spacing:.03em;text-transform:none}
+.tx-status .tx-spinner{width:12px;height:12px;border-radius:50%;border:2px solid #9b5de5;border-top-color:transparent;animation:tx-spin .9s linear infinite}
+.tx-status .tx-message{color:#e2d3f2}
+.tx-status .tx-hash{color:#b57dee;text-decoration:underline}
+.tx-status .tx-hash:hover{color:#e1caff}
+.tx-status .tx-cancel{color:#ff9aa2;font:10px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+@keyframes tx-spin{to{transform:rotate(360deg)}}

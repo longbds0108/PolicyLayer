@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 import json
 import re
+import typing
 
 import genlayer as gl
 from genlayer.storage import allow as allow_storage
@@ -30,11 +31,18 @@ class Decision:
 
 
 class PolicyLayer(gl.contract.Contract):
+    # The address that deployed the contract. Only this address may publish
+    # new policy versions; anyone can read policies or check proposals.
+    owner: str
     policy_title: str
     policy_version: str
     policy_text: str
     policy_history: gl.storage.DynArray[PolicyVersion]
     decision_log: gl.storage.DynArray[Decision]
+
+    # A proposal shorter than this is almost certainly noise and would still
+    # cost the caller a full LLM round. Reject it up front to save fees.
+    MIN_PROPOSAL_LEN: typing.ClassVar[int] = 24
 
     def __init__(self, title: str, version: str, policy_text: str):
         """Initialize the active DAO policy and its first version."""
@@ -49,12 +57,17 @@ class PolicyLayer(gl.contract.Contract):
         if not policy_text:
             raise gl.vm.UserError("Policy text is required")
 
+        self.owner = gl.message.sender_address.as_hex
         self.policy_title = title
         self.policy_version = version
         self.policy_text = policy_text
         self.policy_history.append(
             PolicyVersion(title=title, version=version, text=policy_text)
         )
+
+    @gl.public.view
+    def get_owner(self) -> str:
+        return self.owner
 
     @gl.public.write
     def create_policy(
@@ -63,7 +76,10 @@ class PolicyLayer(gl.contract.Contract):
         version: str,
         policy_text: str,
     ) -> dict[str, str]:
-        """Create and activate a new DAO policy version."""
+        """Create and activate a new DAO policy version (owner only)."""
+        if gl.message.sender_address.as_hex.lower() != self.owner.lower():
+            raise gl.vm.UserError("Only the DAO admin can publish a new policy version")
+
         title = title.strip()
         version = version.strip()
         policy_text = policy_text.strip()
@@ -105,6 +121,10 @@ class PolicyLayer(gl.contract.Contract):
         proposal = proposal.strip()
         if not proposal:
             raise gl.vm.UserError("Proposal text is required")
+        if len(proposal) < self.MIN_PROPOSAL_LEN:
+            raise gl.vm.UserError(
+                f"Proposal must be at least {self.MIN_PROPOSAL_LEN} characters long"
+            )
 
         policy_title = self.policy_title
         policy_version = self.policy_version
