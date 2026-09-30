@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="GenLayer policy decision flow" />
+  <title>GenLayer — Policy flow</title>
+  <style>
+    :root {
+      --bg: #03070b;
+      --node: #062c4f;
+      --node-border: #124d78;
+      --node-text: #9dceff;
+      --muted: #7e94a8;
+      --line: #92a2ae;
+      --line-dim: #34536c;
+      --cyan: #47b5ff;
+      --allowed: #57d9a2;
+      --blocked: #ff7d8b;
+      --vote: #ffc978;
+      --white: #eff7ff;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--bg); }
+    body { margin: 0; min-height: 100vh; color: var(--white); font: 15px/1.5 var(--font); background: radial-gradient(circle at 50% -18%, rgba(13, 73, 116, .25), transparent 34rem), linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px), var(--bg); background-size: auto, 48px 48px, 48px 48px, auto; }
+    button { font: inherit; }
+    .app { width: min(1500px, 100%); margin: 0 auto; padding: 28px 40px 64px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { display: flex; align-items: center; gap: 13px; letter-spacing: .1em; font-size: 12px; font-weight: 750; color: #c4e5ff; }
+    .brand-mark { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #2076aa; border-radius: 8px; background: #073458; color: var(--cyan); font-size: 13px; box-shadow: 0 0 22px rgba(58, 170, 255, .15); }
+    .network { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .network-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--allowed); box-shadow: 0 0 12px var(--allowed); }
+    .intro { max-width: 760px; margin: 58px auto 0; text-align: center; }
+    .kicker { margin: 0 0 14px; color: var(--cyan); text-transform: uppercase; letter-spacing: .18em; font-size: 11px; font-weight: 800; }
+    h1 { margin: 0; color: var(--white); font-size: clamp(31px, 4vw, 51px); line-height: 1.05; letter-spacing: -.045em; }
+    .intro p { max-width: 560px; margin: 18px auto 0; color: var(--muted); font-size: 16px; }
+    .flow-wrap { position: relative; margin-top: 54px; }
+    .flow { display: flex; flex-direction: column; align-items: center; }
+    .node { position: relative; z-index: 1; width: min(455px, 100%); min-height: 108px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 22px 26px; border: 1px solid var(--node-border); border-radius: 25px; color: var(--node-text); background: linear-gradient(145deg, #07375f, #062441); box-shadow: 0 16px 42px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255,255,255,.04); text-align: center; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+    .node:hover { transform: translateY(-3px); border-color: #2f93d1; box-shadow: 0 18px 46px rgba(0, 0, 0, .32), 0 0 30px rgba(30, 143, 219, .11); }
+    .node .title { font-size: clamp(19px, 2.1vw, 28px); line-height: 1.15; font-weight: 760; letter-spacing: -.025em; }
+    .node .meta { color: #6893b5; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .connector { width: 1px; height: 80px; position: relative; background: linear-gradient(var(--line), var(--line)); }
+    .connector::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 9px; height: 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+    .verdict { width: 245px; min-height: 122px; border-style: dashed; border-color: #1c689b; background: linear-gradient(145deg, #041725, #03111d); }
+    .verdict .title { font-size: 26px; }
+    .verdict .meta { color: #4f9bd1; }
+    .branches { width: 100%; margin-top: 0; position: relative; padding-top: 140px; }
+    .branch-rail { position: absolute; height: 65px; top: 0; left: calc(50% - 1px); border-left: 1px solid var(--line); }
+    .branch-rail::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 9px; height: 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+    .branch-line { position: absolute; top: 64px; height: 1px; background: var(--line); transform-origin: left center; }
+    .branch-line.left { right: 50%; width: min(38%, 475px); }
+    .branch-line.center { left: 50%; width: min(14%, 170px); }
+    .branch-line.right { left: 50%; width: min(38%, 475px); }
+    .branch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; align-items: start; }
+    .branch { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+    .outcome { width: min(100%, 430px); min-height: 125px; border-radius: 24px; background: rgba(3, 20, 32, .9); border: 1px solid var(--node-border); display: flex; align-items: center; justify-content: center; padding: 22px; text-align: center; color: var(--node-text); cursor: pointer; transition: transform .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+    .outcome:hover, .outcome.selected { transform: translateY(-4px); border-color: var(--cyan); background: #062846; box-shadow: 0 0 30px rgba(49, 168, 237, .16); }
+    .outcome .title { font-size: clamp(17px, 1.85vw, 25px); line-height: 1.18; font-weight: 800; letter-spacing: .01em; }
+    .outcome.allowed { color: var(--allowed); }
+    .outcome.blocked { color: var(--blocked); }
+    .outcome.vote { color: var(--vote); }
+    .outcome.selected.allowed { box-shadow: 0 0 34px rgba(87, 217, 162, .16); border-color: var(--allowed); }
+    .outcome.selected.blocked { box-shadow: 0 0 34px rgba(255, 125, 139, .16); border-color: var(--blocked); }
+    .outcome.selected.vote { box-shadow: 0 0 34px rgba(255, 201, 120, .16); border-color: var(--vote); }
+    .branch-stem { width: 1px; height: 63px; background: var(--line); position: relative; }
+    .branch-stem::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 9px; height: 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+    .detail { width: min(760px, 100%); min-height: 82px; margin: 43px auto 0; padding: 17px 21px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid #17334a; border-radius: 15px; background: rgba(5, 18, 29, .83); color: var(--muted); }
+    .detail-copy { display: grid; gap: 3px; }
+    .detail-label { color: #5c85a6; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .detail strong { color: var(--white); font-size: 14px; }
+    .detail button { padding: 10px 14px; border: 1px solid #28628b; border-radius: 9px; color: #a5d7ff; background: #082b47; cursor: pointer; white-space: nowrap; }
+    .detail button:hover { background: #0b3d62; }
+    .footer { display: flex; justify-content: center; gap: 24px; margin-top: 52px; color: #49667f; font-size: 11px; letter-spacing: .04em; }
+    .footer span { display: inline-flex; align-items: center; gap: 7px; }
+    .footer i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--line-dim); }
+    .footer i.active { background: var(--cyan); }
+    @media (max-width: 900px) {
+      .app { padding: 22px 20px 46px; }
+      .intro { margin-top: 48px; }
+      .branches { padding-top: 0; margin-top: 48px; }
+      .branch-rail, .branch-line { display: none; }
+      .branch-grid { display: flex; flex-direction: column; gap: 0; }
+      .branch { width: 100%; }
+      .branch-stem { height: 44px; }
+      .outcome { max-width: 455px; }
+      .detail { margin-top: 34px; }
+    }
+    @media (max-width: 560px) {
+      .topbar { align-items: flex-start; }
+      .network { font-size: 10px; }
+      .intro { margin-top: 40px; }
+      .intro p { font-size: 14px; }
+      .node { min-height: 94px; border-radius: 20px; padding: 18px; }
+      .connector { height: 55px; }
+      .verdict { width: 210px; min-height: 105px; }
+      .outcome { min-height: 98px; border-radius: 19px; }
+      .detail { align-items: flex-start; flex-direction: column; }
+      .detail button { width: 100%; }
+      .footer { flex-direction: column; align-items: center; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✦</span><span>GENLAYER / POLICY FLOW</span></div>
+      <div class="network"><span class="network-dot"></span>Consensus engine online</div>
+    </header>
+    <section class="intro" aria-labelledby="page-title">
+      <p class="kicker">Decision architecture · Policy v1</p>
+      <h1 id="page-title">From policy to proposal verdict</h1>
+      <p>A transparent review path for every DAO proposal — from the first rule to the final community decision.</p>
+    </section>
+    <section class="flow-wrap" aria-label="GenLayer policy review flow">
+      <div class="flow">
+        <article class="node"><span class="meta">Step 01 · Governance</span><span class="title">Admin tạo Policy v1</span></article>
+        <div class="connector" aria-hidden="true"></div>
+        <article class="node"><span class="meta">Step 02 · Submission</span><span class="title">Thành viên tạo Proposal</span></article>
+        <div class="connector" aria-hidden="true"></div>
+        <article class="node"><span class="meta">Step 03 · Consensus</span><span class="title">GenLayer review</span></article>
+        <div class="connector" aria-hidden="true"></div>
+        <article class="node verdict"><span class="meta">Step 04 · Decision point</span><span class="title">Verdict</span></article>
+      </div>
+      <div class="branches">
+        <div class="branch-rail" aria-hidden="true"></div>
+        <div class="branch-line left" aria-hidden="true"></div>
+        <div class="branch-line center" aria-hidden="true"></div>
+        <div class="branch-line right" aria-hidden="true"></div>
+        <div class="branch-grid">
+          <div class="branch"><div class="branch-stem" aria-hidden="true"></div><button class="outcome allowed" data-result="allowed" aria-pressed="false"><span class="title">ALLOWED</span></button></div>
+          <div class="branch"><div class="branch-stem" aria-hidden="true"></div><button class="outcome blocked" data-result="blocked" aria-pressed="false"><span class="title">BLOCKED</span></button></div>
+          <div class="branch"><div class="branch-stem" aria-hidden="true"></div><button class="outcome vote" data-result="vote" aria-pressed="false"><span class="title">NEEDS COMMUNITY VOTE</span></button></div>
+        </div>
+      </div>
+      <aside class="detail" id="detail" aria-live="polite">
+        <div class="detail-copy"><span class="detail-label">Select an outcome</span><strong>Explore what happens after the GenLayer verdict.</strong></div>
+        <button type="button" id="reset">Reset selection</button>
+      </aside>
+    </section>
+    <footer class="footer"><span><i class="active"></i> Policy engine</span><span><i></i> Validator consensus</span><span><i></i> Community governance</span></footer>
+  </main>
+  <script>
+    const outcomes = {
+      allowed: { label: 'ALLOWED', copy: 'Proposal passes policy review and moves forward to DAO voting.', color: 'allowed' },
+      blocked: { label: 'BLOCKED', copy: 'Proposal violates an active policy. The conflicting rule is shown to the proposer.', color: 'blocked' },
+      vote: { label: 'NEEDS COMMUNITY VOTE', copy: 'The proposal is an exception. The community makes the final decision.', color: 'vote' }
+    };
+    const detail = document.querySelector('#detail');
+    const buttons = document.querySelectorAll('.outcome');
+    function selectOutcome(key) {
+      const item = outcomes[key];
+      buttons.forEach(button => {
+        const selected = button.dataset.result === key;
+        button.classList.toggle('selected', selected);
+        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      detail.className = `detail ${item.color}`;
+      detail.querySelector('.detail-copy').innerHTML = `<span class="detail-label">Verdict path selected</span><strong>${item.label} — ${item.copy}</strong>`;
+    }
+    buttons.forEach(button => button.addEventListener('click', () => selectOutcome(button.dataset.result)));
+    document.querySelector('#reset').addEventListener('click', () => {
+      buttons.forEach(button => { button.classList.remove('selected'); button.setAttribute('aria-pressed', 'false'); });
+      detail.className = 'detail';
+      detail.querySelector('.detail-copy').innerHTML = '<span class="detail-label">Select an outcome</span><strong>Explore what happens after the GenLayer verdict.</strong>';
+    });
+  </script>
+</body>
+</html>
