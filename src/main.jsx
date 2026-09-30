@@ -44,7 +44,7 @@ function WalletBridge() {
   }, [openConnectModal]);
 
   useEffect(() => {
-    if (window.location.pathname.endsWith('/dashboard.html') || !isConnected || !address) return;
+    if (document.querySelector('[data-page]') || !isConnected || !address) return;
     localStorage.setItem('plWallet', JSON.stringify({ address, mode: 'RainbowKit', chain: 'GenLayer Bradbury' }));
     window.location.href = 'dashboard.html';
   }, [address, isConnected]);
