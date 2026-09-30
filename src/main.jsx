@@ -63,7 +63,6 @@ function WalletHeader() {
         if (account) {
           return (
             <button className="policy-wallet-account" onClick={openAccountModal} type="button">
-              <span className="policy-wallet-orb">◈</span>
               <span className="policy-wallet-copy"><small>Connected wallet</small><strong>{account.displayName}</strong></span>
               <span className="policy-wallet-caret">⌄</span>
             </button>
