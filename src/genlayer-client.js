@@ -116,6 +116,12 @@ export function humanizeWalletError(error) {
   if (/Address\s+"?undefined"?\s+is invalid/i.test(raw)) {
     return 'Your wallet did not return an account address. Reconnect the wallet and try again.';
   }
+  if (/execution failed|execution reverted/i.test(raw)) {
+    return 'The transaction would fail on chain. Check that the wallet is the DAO admin (for Save policy) or that the proposal text is at least 24 characters (for Check policy).';
+  }
+  if (/Missing or invalid parameters/i.test(raw)) {
+    return 'The GenLayer RPC rejected the request. Reload the page, reconnect the wallet, and try again.';
+  }
   if (/UserError:/.test(raw)) {
     return raw.split('UserError:').pop().trim();
   }
