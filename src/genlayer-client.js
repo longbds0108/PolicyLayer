@@ -154,15 +154,18 @@ export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   });
 
   hooks.onStatus?.('signing');
+  // Do NOT pass `account` here. genlayer-js reads `senderAccount.address`
+  // internally; if we hand it the bare hex string, `.address` is undefined
+  // and getCurrentNonce/gen_call send malformed RPC params, which the
+  // Studio RPC rejects with "Missing or invalid parameters". Letting these
+  // fall back to `client.account` uses viem's parsed { address, type }.
   const feeEstimate = await client.estimateTransactionFeesForWrite({
-    account,
     address: POLICY_LAYER_ADDRESS,
     functionName,
     args,
   });
 
   const hash = await client.writeContract({
-    account,
     address: POLICY_LAYER_ADDRESS,
     functionName,
     args,
