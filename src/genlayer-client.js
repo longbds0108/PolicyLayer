@@ -137,15 +137,16 @@ const DECIDED = new Set(['ACCEPTED', 'FINALIZED', 'UNDETERMINED', 'CANCELED']);
 
 export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   const provider = browserProvider();
-  const address = await getWalletAddress();
+  const account = await getWalletAddress();
   // Sending a tx from the wrong chain either fails with a cryptic error or,
   // worse, lands on the wallet's active chain. Force the right chain first.
   await ensureStudioChain(provider);
 
-  // genlayer-js/viem accepts either a hex address or a full Account object.
-  // Passing the object explicitly avoids "Address 'undefined' is invalid"
-  // when a stale RainbowKit reconnect leaves the account object partially set.
-  const account = { address, type: 'json-rpc' };
+  // Must pass the account as a STRING (hex address), not an Account object.
+  // genlayer-js's internal transport routes eth_sendTransaction to the
+  // wallet provider only when `typeof config.account !== "object"`; passing
+  // an object silently sends it to the Studio RPC, which does not support
+  // signing and returns "The method eth_sendTransaction does not exist".
   const client = createClient({
     chain: studioDevnet,
     account,
