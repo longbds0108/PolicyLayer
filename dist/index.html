@@ -3,168 +3,43 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="GenLayer policy decision flow" />
-  <title>GenLayer — Policy flow</title>
+  <meta name="description" content="PolicyLayer — dApp quản trị proposal bằng GenLayer consensus" />
+  <title>PolicyLayer — DAO governance</title>
   <style>
-    :root {
-      --bg: #03070b;
-      --node: #062c4f;
-      --node-border: #124d78;
-      --node-text: #9dceff;
-      --muted: #7e94a8;
-      --line: #92a2ae;
-      --line-dim: #34536c;
-      --cyan: #47b5ff;
-      --allowed: #57d9a2;
-      --blocked: #ff7d8b;
-      --vote: #ffc978;
-      --white: #eff7ff;
-      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    * { box-sizing: border-box; }
-    html { min-width: 320px; background: var(--bg); }
-    body { margin: 0; min-height: 100vh; color: var(--white); font: 15px/1.5 var(--font); background: radial-gradient(circle at 50% -18%, rgba(13, 73, 116, .25), transparent 34rem), linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px), var(--bg); background-size: auto, 48px 48px, 48px 48px, auto; }
-    button { font: inherit; }
-    .app { width: min(1500px, 100%); margin: 0 auto; padding: 28px 40px 64px; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-    .brand { display: flex; align-items: center; gap: 13px; letter-spacing: .1em; font-size: 12px; font-weight: 750; color: #c4e5ff; }
-    .brand-mark { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #2076aa; border-radius: 8px; background: #073458; color: var(--cyan); font-size: 13px; box-shadow: 0 0 22px rgba(58, 170, 255, .15); }
-    .network { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
-    .network-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--allowed); box-shadow: 0 0 12px var(--allowed); }
-    .intro { max-width: 760px; margin: 58px auto 0; text-align: center; }
-    .kicker { margin: 0 0 14px; color: var(--cyan); text-transform: uppercase; letter-spacing: .18em; font-size: 11px; font-weight: 800; }
-    h1 { margin: 0; color: var(--white); font-size: clamp(31px, 4vw, 51px); line-height: 1.05; letter-spacing: -.045em; }
-    .intro p { max-width: 560px; margin: 18px auto 0; color: var(--muted); font-size: 16px; }
-    .flow-wrap { position: relative; margin-top: 54px; }
-    .flow { display: flex; flex-direction: column; align-items: center; }
-    .node { position: relative; z-index: 1; width: min(455px, 100%); min-height: 108px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 22px 26px; border: 1px solid var(--node-border); border-radius: 25px; color: var(--node-text); background: linear-gradient(145deg, #07375f, #062441); box-shadow: 0 16px 42px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255,255,255,.04); text-align: center; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
-    .node:hover { transform: translateY(-3px); border-color: #2f93d1; box-shadow: 0 18px 46px rgba(0, 0, 0, .32), 0 0 30px rgba(30, 143, 219, .11); }
-    .node .title { font-size: clamp(19px, 2.1vw, 28px); line-height: 1.15; font-weight: 760; letter-spacing: -.025em; }
-    .node .meta { color: #6893b5; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-    .connector { width: 1px; height: 80px; position: relative; background: linear-gradient(var(--line), var(--line)); }
-    .connector::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 9px; height: 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
-    .verdict { width: 245px; min-height: 122px; border-style: dashed; border-color: #1c689b; background: linear-gradient(145deg, #041725, #03111d); }
-    .verdict .title { font-size: 26px; }
-    .verdict .meta { color: #4f9bd1; }
-    .branches { width: 100%; margin-top: 0; position: relative; padding-top: 140px; }
-    .branch-rail { position: absolute; height: 65px; top: 0; left: calc(50% - 1px); border-left: 1px solid var(--line); }
-    .branch-rail::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 9px; height: 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
-    .branch-line { position: absolute; top: 64px; height: 1px; background: var(--line); transform-origin: left center; }
-    .branch-line.left { right: 50%; width: min(38%, 475px); }
-    .branch-line.center { left: 50%; width: min(14%, 170px); }
-    .branch-line.right { left: 50%; width: min(38%, 475px); }
-    .branch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; align-items: start; }
-    .branch { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-    .outcome { width: min(100%, 430px); min-height: 125px; border-radius: 24px; background: rgba(3, 20, 32, .9); border: 1px solid var(--node-border); display: flex; align-items: center; justify-content: center; padding: 22px; text-align: center; color: var(--node-text); cursor: pointer; transition: transform .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
-    .outcome:hover, .outcome.selected { transform: translateY(-4px); border-color: var(--cyan); background: #062846; box-shadow: 0 0 30px rgba(49, 168, 237, .16); }
-    .outcome .title { font-size: clamp(17px, 1.85vw, 25px); line-height: 1.18; font-weight: 800; letter-spacing: .01em; }
-    .outcome.allowed { color: var(--allowed); }
-    .outcome.blocked { color: var(--blocked); }
-    .outcome.vote { color: var(--vote); }
-    .outcome.selected.allowed { box-shadow: 0 0 34px rgba(87, 217, 162, .16); border-color: var(--allowed); }
-    .outcome.selected.blocked { box-shadow: 0 0 34px rgba(255, 125, 139, .16); border-color: var(--blocked); }
-    .outcome.selected.vote { box-shadow: 0 0 34px rgba(255, 201, 120, .16); border-color: var(--vote); }
-    .branch-stem { width: 1px; height: 63px; background: var(--line); position: relative; }
-    .branch-stem::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 9px; height: 9px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
-    .detail { width: min(760px, 100%); min-height: 82px; margin: 43px auto 0; padding: 17px 21px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid #17334a; border-radius: 15px; background: rgba(5, 18, 29, .83); color: var(--muted); }
-    .detail-copy { display: grid; gap: 3px; }
-    .detail-label { color: #5c85a6; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-    .detail strong { color: var(--white); font-size: 14px; }
-    .detail button { padding: 10px 14px; border: 1px solid #28628b; border-radius: 9px; color: #a5d7ff; background: #082b47; cursor: pointer; white-space: nowrap; }
-    .detail button:hover { background: #0b3d62; }
-    .footer { display: flex; justify-content: center; gap: 24px; margin-top: 52px; color: #49667f; font-size: 11px; letter-spacing: .04em; }
-    .footer span { display: inline-flex; align-items: center; gap: 7px; }
-    .footer i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--line-dim); }
-    .footer i.active { background: var(--cyan); }
-    @media (max-width: 900px) {
-      .app { padding: 22px 20px 46px; }
-      .intro { margin-top: 48px; }
-      .branches { padding-top: 0; margin-top: 48px; }
-      .branch-rail, .branch-line { display: none; }
-      .branch-grid { display: flex; flex-direction: column; gap: 0; }
-      .branch { width: 100%; }
-      .branch-stem { height: 44px; }
-      .outcome { max-width: 455px; }
-      .detail { margin-top: 34px; }
-    }
-    @media (max-width: 560px) {
-      .topbar { align-items: flex-start; }
-      .network { font-size: 10px; }
-      .intro { margin-top: 40px; }
-      .intro p { font-size: 14px; }
-      .node { min-height: 94px; border-radius: 20px; padding: 18px; }
-      .connector { height: 55px; }
-      .verdict { width: 210px; min-height: 105px; }
-      .outcome { min-height: 98px; border-radius: 19px; }
-      .detail { align-items: flex-start; flex-direction: column; }
-      .detail button { width: 100%; }
-      .footer { flex-direction: column; align-items: center; gap: 8px; }
-    }
+    :root{--bg:#060b12;--sidebar:#081321;--panel:#0b1725;--panel2:#0e1d2e;--line:#1d344a;--text:#edf6ff;--muted:#8ba0b4;--blue:#63b9ff;--blue2:#0d70bd;--green:#53db9e;--red:#ff7789;--yellow:#f7c66f;--shadow:0 20px 50px #00000025;--font:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 60% -10%,#153d5d55,transparent 32rem),var(--bg);color:var(--text);font:14px/1.5 var(--font)}button,input,textarea,select{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.sidebar{background:linear-gradient(180deg,#091726,#07101b);border-right:1px solid var(--line);padding:25px 15px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:11px;padding:0 11px 30px;color:#fff;font-size:17px;font-weight:800;letter-spacing:-.02em}.brand-mark{width:31px;height:31px;border:1px solid #277eb6;border-radius:9px;display:grid;place-items:center;background:#0b385c;color:var(--blue);font-size:17px}.eyebrow{color:#7793aa;text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:800}.nav{display:grid;gap:5px}.nav button{border:0;border-radius:9px;padding:11px 13px;text-align:left;color:#8da5b9;background:transparent}.nav button:hover,.nav button.active{background:#102941;color:#dff2ff}.nav svg{width:16px;height:16px;vertical-align:-3px;margin-right:10px}.sidebar-bottom{margin-top:auto;border-top:1px solid var(--line);padding:18px 9px 0;color:var(--muted);font-size:12px}.wallet{margin-top:10px;border:1px solid #21415a;border-radius:10px;padding:11px;color:#bed8ec;background:#0b1c2c}.wallet strong{display:block;color:#fff;font-size:12px}.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px var(--green);margin-right:6px}.main{width:min(1440px,100%);padding:28px 42px 60px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:36px}.crumb{color:var(--muted);font-size:13px}.crumb strong{color:var(--text)}.top-actions{display:flex;gap:10px;align-items:center}.icon-btn,.secondary,.primary{border:1px solid var(--line);border-radius:9px;background:#0c1c2d;color:#a9c7dc;padding:10px 14px;font-weight:700}.icon-btn{padding:9px 11px}.primary{border-color:#2b8ed0;color:white;background:linear-gradient(135deg,#197cca,#0e5da2);box-shadow:0 8px 24px #006fbe2a}.primary:hover{filter:brightness(1.13)}.secondary:hover,.icon-btn:hover{background:#112b42}.hero{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:28px}.hero h1{font-size:clamp(29px,4vw,48px);line-height:1.05;letter-spacing:-.055em;margin:10px 0 12px}.hero p{max-width:650px;margin:0;color:var(--muted);font-size:16px}.hero-actions{display:flex;gap:10px;flex-shrink:0}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}.metric,.panel{border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#0d1d2d,#0a1623);box-shadow:var(--shadow)}.metric{padding:17px}.metric-head{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.metric-icon{color:var(--blue);font-size:16px}.metric-value{font-size:28px;font-weight:800;letter-spacing:-.04em;margin-top:7px}.metric-note{color:#6e889c;font-size:12px}.grid{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;margin-bottom:18px}.panel{padding:20px}.panel-title{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:17px}.panel-title h2{font-size:16px;letter-spacing:-.02em;margin:0}.panel-title a{color:var(--blue);font-size:12px;cursor:pointer}.flow{padding:6px 0 2px}.steps{display:grid;grid-template-columns:repeat(4,1fr);position:relative;margin-bottom:20px}.steps:before{content:"";height:1px;background:#294966;position:absolute;top:17px;left:8%;right:8%}.step{position:relative;text-align:center;color:#728da5;font-size:11px}.step-dot{width:34px;height:34px;display:grid;place-items:center;margin:0 auto 9px;border:1px solid #2e5270;border-radius:50%;background:#0a1928;color:#78a5c6;position:relative}.step.done .step-dot{border-color:var(--green);background:#0e2c2b;color:var(--green)}.step.active .step-dot{border-color:var(--blue);background:#0d4166;color:white;box-shadow:0 0 0 5px #0a2d47}.step.active{color:#dff3ff}.step strong{display:block;color:inherit;font-size:12px}.verdict-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.verdict{min-height:75px;border:1px solid #23425b;border-radius:11px;background:#091723;padding:13px;cursor:pointer;transition:.2s}.verdict:hover,.verdict.selected{transform:translateY(-2px);border-color:var(--blue);background:#0d273d}.verdict strong{display:block;font-size:12px;letter-spacing:.04em}.verdict span{display:block;color:var(--muted);font-size:11px;margin-top:4px}.allowed strong{color:var(--green)}.blocked strong{color:var(--red)}.vote strong{color:var(--yellow)}.policy-list{display:grid;gap:11px}.rule{display:flex;gap:11px;align-items:flex-start;padding-bottom:11px;border-bottom:1px solid #172d41}.rule:last-child{border:0;padding:0}.rule-num{width:23px;height:23px;flex:0 0 23px;display:grid;place-items:center;border-radius:7px;background:#123554;color:var(--blue);font-size:11px;font-weight:800}.rule strong{display:block;font-size:13px}.rule span{display:block;color:var(--muted);font-size:12px;margin-top:2px}.policy-footer{display:flex;justify-content:space-between;align-items:center;margin-top:17px;color:var(--muted);font-size:12px}.active-tag,.status{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:4px 9px;font-size:11px;font-weight:800}.active-tag{background:#0d352f;color:var(--green)}.status.allowed{background:#0d352f;color:var(--green)}.status.blocked{background:#3a1821;color:var(--red)}.status.vote{background:#3a2e17;color:var(--yellow)}table{width:100%;border-collapse:collapse}th{text-align:left;color:#6f889d;text-transform:uppercase;font-size:10px;letter-spacing:.1em;font-weight:800;padding:0 0 10px}td{padding:13px 0;border-top:1px solid #172d41;font-size:12px}td strong{display:block;font-size:13px}.small{color:var(--muted);font-size:11px}.proposal-status{text-align:right}.activity{display:grid;gap:14px}.activity-item{display:flex;gap:11px}.activity-dot{width:8px;height:8px;flex:0 0 8px;margin-top:6px;border-radius:50%;background:var(--blue);box-shadow:0 0 9px #4eb6ff77}.activity-item strong{display:block;font-size:12px}.activity-item span{color:var(--muted);font-size:11px}.modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:#02060bcc;z-index:5}.modal-backdrop.show{display:flex}.modal{width:min(520px,100%);border:1px solid #2a526e;border-radius:16px;background:#0a1928;box-shadow:0 25px 80px #0008;padding:23px}.modal-head{display:flex;justify-content:space-between;align-items:start}.modal h2{margin:0 0 5px;font-size:21px}.modal p{color:var(--muted);font-size:12px;margin:0 0 20px}.close{border:0;background:transparent;color:#90a8bb;font-size:22px}.field{margin:13px 0}.field label{display:block;color:#b6ccdc;font-size:12px;font-weight:700;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;border:1px solid #27445a;border-radius:8px;padding:10px 11px;color:var(--text);background:#07131f;outline:0}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--blue)}.field textarea{min-height:80px;resize:vertical}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.toast{position:fixed;right:22px;bottom:22px;display:none;padding:12px 16px;border:1px solid #2d6b88;border-radius:10px;background:#0e2a3e;color:#dff4ff;box-shadow:var(--shadow);z-index:7}.toast.show{display:block}@media(max-width:1050px){.app{grid-template-columns:210px 1fr}.main{padding:26px 24px}.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.app{display:block}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:15px}.brand{padding:0 4px 15px}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap;padding:9px}.sidebar-bottom{display:none}.main{padding:22px 16px 42px}.topbar{margin-bottom:30px}.hero{display:block}.hero-actions{margin-top:20px}.metrics{grid-template-columns:repeat(2,1fr);gap:10px}.metric-value{font-size:23px}.steps{grid-template-columns:repeat(2,1fr);gap:17px}.steps:before{display:none}.verdict-row{grid-template-columns:1fr}.top-actions .icon-btn{display:none}}
   </style>
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div class="brand"><span class="brand-mark">✦</span><span>GENLAYER / POLICY FLOW</span></div>
-      <div class="network"><span class="network-dot"></span>Consensus engine online</div>
-    </header>
-    <section class="intro" aria-labelledby="page-title">
-      <p class="kicker">Decision architecture · Policy v1</p>
-      <h1 id="page-title">From policy to proposal verdict</h1>
-      <p>A transparent review path for every DAO proposal — from the first rule to the final community decision.</p>
-    </section>
-    <section class="flow-wrap" aria-label="GenLayer policy review flow">
-      <div class="flow">
-        <article class="node"><span class="meta">Step 01 · Governance</span><span class="title">Admin tạo Policy v1</span></article>
-        <div class="connector" aria-hidden="true"></div>
-        <article class="node"><span class="meta">Step 02 · Submission</span><span class="title">Thành viên tạo Proposal</span></article>
-        <div class="connector" aria-hidden="true"></div>
-        <article class="node"><span class="meta">Step 03 · Consensus</span><span class="title">GenLayer review</span></article>
-        <div class="connector" aria-hidden="true"></div>
-        <article class="node verdict"><span class="meta">Step 04 · Decision point</span><span class="title">Verdict</span></article>
-      </div>
-      <div class="branches">
-        <div class="branch-rail" aria-hidden="true"></div>
-        <div class="branch-line left" aria-hidden="true"></div>
-        <div class="branch-line center" aria-hidden="true"></div>
-        <div class="branch-line right" aria-hidden="true"></div>
-        <div class="branch-grid">
-          <div class="branch"><div class="branch-stem" aria-hidden="true"></div><button class="outcome allowed" data-result="allowed" aria-pressed="false"><span class="title">ALLOWED</span></button></div>
-          <div class="branch"><div class="branch-stem" aria-hidden="true"></div><button class="outcome blocked" data-result="blocked" aria-pressed="false"><span class="title">BLOCKED</span></button></div>
-          <div class="branch"><div class="branch-stem" aria-hidden="true"></div><button class="outcome vote" data-result="vote" aria-pressed="false"><span class="title">NEEDS COMMUNITY VOTE</span></button></div>
-        </div>
-      </div>
-      <aside class="detail" id="detail" aria-live="polite">
-        <div class="detail-copy"><span class="detail-label">Select an outcome</span><strong>Explore what happens after the GenLayer verdict.</strong></div>
-        <button type="button" id="reset">Reset selection</button>
-      </aside>
-    </section>
-    <footer class="footer"><span><i class="active"></i> Policy engine</span><span><i></i> Validator consensus</span><span><i></i> Community governance</span></footer>
-  </main>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">✦</span> PolicyLayer</div>
+      <nav class="nav" aria-label="Main navigation">
+        <button class="active" data-target="overview">▦&nbsp;&nbsp; Overview</button>
+        <button data-target="proposals">◫&nbsp;&nbsp; Proposals</button>
+        <button data-target="policy">◈&nbsp;&nbsp; Policies</button>
+        <button data-target="votes">◉&nbsp;&nbsp; DAO votes</button>
+      </nav>
+      <div class="sidebar-bottom"><span class="eyebrow">Connected wallet</span><div class="wallet"><strong>0x71...4A2f</strong><span><i class="status-dot"></i>GenLayer testnet</span></div></div>
+    </aside>
+    <main class="main" id="overview">
+      <header class="topbar"><div class="crumb">Workspace / <strong>Overview</strong></div><div class="top-actions"><button class="icon-btn" aria-label="Notifications">♢</button><button class="secondary">0x71...4A2f</button></div></header>
+      <section class="hero"><div><span class="eyebrow">DAO governance workspace</span><h1>Policy-led decisions,<br><span style="color:var(--blue)">validated by consensus.</span></h1><p>Define the rules once. Let GenLayer review every proposal before the community makes a decision.</p></div><div class="hero-actions"><button class="secondary" id="policyBtn">View active policy</button><button class="primary" id="createBtn">＋ Create proposal</button></div></section>
+      <section class="metrics" aria-label="Protocol metrics"><div class="metric"><div class="metric-head"><span>Active policy</span><span class="metric-icon">◈</span></div><div class="metric-value">v1.2</div><div class="metric-note"><span class="status allowed">● Live</span></div></div><div class="metric"><div class="metric-head"><span>Proposals reviewed</span><span class="metric-icon">◫</span></div><div class="metric-value" id="reviewCount">24</div><div class="metric-note">+6 this week</div></div><div class="metric"><div class="metric-head"><span>Consensus rate</span><span class="metric-icon">◉</span></div><div class="metric-value">98.4%</div><div class="metric-note">Across 3 validators</div></div><div class="metric"><div class="metric-head"><span>Open community votes</span><span class="metric-icon">◎</span></div><div class="metric-value" id="voteCount">1</div><div class="metric-note">Needs your attention</div></div></section>
+      <section class="grid"><div class="panel" id="proposals"><div class="panel-title"><h2>Proposal review pipeline</h2><a id="simulateLink">Simulate a proposal →</a></div><div class="flow"><div class="steps"><div class="step done"><div class="step-dot">✓</div><strong>Policy</strong><span>Admin rules</span></div><div class="step done"><div class="step-dot">✓</div><strong>Proposal</strong><span>Member submits</span></div><div class="step active"><div class="step-dot">✦</div><strong>GenLayer review</strong><span>Consensus check</span></div><div class="step"><div class="step-dot">4</div><strong>Verdict</strong><span>Route decision</span></div></div><div class="verdict-row"><button class="verdict allowed" data-message="Proposal passes the policy set and moves to DAO voting."><strong>ALLOWED</strong><span>Move to DAO vote</span></button><button class="verdict blocked" data-message="Show the exact policy rule that the proposal violates."><strong>BLOCKED</strong><span>Explain violated rule</span></button><button class="verdict vote" data-message="Escalate the exception to the community for a final decision."><strong>NEEDS COMMUNITY VOTE</strong><span>Escalate exception</span></button></div></div></div><div class="panel" id="policy"><div class="panel-title"><h2>Active policy <span class="active-tag">● v1.2</span></h2><a id="managePolicy">Manage →</a></div><div class="policy-list"><div class="rule"><div class="rule-num">01</div><div><strong>Treasury spending cap</strong><span>Single proposal cannot exceed 20% of treasury.</span></div></div><div class="rule"><div class="rule-num">02</div><div><strong>Open-source funding</strong><span>Funded projects must publish their source code.</span></div></div><div class="rule"><div class="rule-num">03</div><div><strong>Large spend exception</strong><span>Requests over 10,000 USDC require a community vote.</span></div></div></div><div class="policy-footer"><span>Created by admin · 2 days ago</span><a>View policy JSON ↗</a></div></div></section>
+      <section class="grid"><div class="panel"><div class="panel-title"><h2>Recent proposals</h2><a>View all →</a></div><table><thead><tr><th>Proposal</th><th>Submitted by</th><th class="proposal-status">Verdict</th></tr></thead><tbody id="proposalRows"><tr><td><strong>Fund public developer tools</strong><span class="small">12,000 USDC · 2h ago</span></td><td class="small">0x8a...29b1</td><td class="proposal-status"><span class="status vote">Vote needed</span></td></tr><tr><td><strong>Q3 security audit</strong><span class="small">7,500 USDC · 6h ago</span></td><td class="small">0x42...c801</td><td class="proposal-status"><span class="status allowed">Allowed</span></td></tr><tr><td><strong>Private analytics license</strong><span class="small">30,000 USDC · 1d ago</span></td><td class="small">0xa1...009e</td><td class="proposal-status"><span class="status blocked">Blocked</span></td></tr></tbody></table></div><div class="panel" id="votes"><div class="panel-title"><h2>Activity</h2><a>Audit log →</a></div><div class="activity"><div class="activity-item"><i class="activity-dot"></i><div><strong>GenLayer reached consensus</strong><span>Q3 security audit was marked ALLOWED · 6h ago</span></div></div><div class="activity-item"><i class="activity-dot" style="background:var(--yellow)"></i><div><strong>Community vote opened</strong><span>Fund public developer tools needs 12h remaining</span></div></div><div class="activity-item"><i class="activity-dot" style="background:var(--green)"></i><div><strong>Policy v1.2 activated</strong><span>All new proposals use this rule set · 2d ago</span></div></div></div></div></section>
+    </main>
+  </div>
+  <div class="modal-backdrop" id="modal"><form class="modal" id="proposalForm"><div class="modal-head"><div><h2>Create proposal</h2><p>Proposal sẽ được GenLayer review trước khi đưa ra DAO vote.</p></div><button type="button" class="close" id="closeModal">×</button></div><div class="field"><label for="title">Proposal title</label><input id="title" required placeholder="Fund a public developer tool" /></div><div class="field"><label for="amount">Requested amount (USDC)</label><input id="amount" type="number" min="0" required placeholder="12000" /></div><div class="field"><label for="recipient">Recipient / project</label><input id="recipient" required placeholder="Example Labs" /></div><div class="field"><label for="summary">Summary</label><textarea id="summary" placeholder="What should the DAO fund?"></textarea></div><div class="modal-actions"><button type="button" class="secondary" id="cancelModal">Cancel</button><button class="primary" type="submit">Run GenLayer review</button></div></form></div><div class="toast" id="toast"></div>
   <script>
-    const outcomes = {
-      allowed: { label: 'ALLOWED', copy: 'Proposal passes policy review and moves forward to DAO voting.', color: 'allowed' },
-      blocked: { label: 'BLOCKED', copy: 'Proposal violates an active policy. The conflicting rule is shown to the proposer.', color: 'blocked' },
-      vote: { label: 'NEEDS COMMUNITY VOTE', copy: 'The proposal is an exception. The community makes the final decision.', color: 'vote' }
-    };
-    const detail = document.querySelector('#detail');
-    const buttons = document.querySelectorAll('.outcome');
-    function selectOutcome(key) {
-      const item = outcomes[key];
-      buttons.forEach(button => {
-        const selected = button.dataset.result === key;
-        button.classList.toggle('selected', selected);
-        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-      });
-      detail.className = `detail ${item.color}`;
-      detail.querySelector('.detail-copy').innerHTML = `<span class="detail-label">Verdict path selected</span><strong>${item.label} — ${item.copy}</strong>`;
-    }
-    buttons.forEach(button => button.addEventListener('click', () => selectOutcome(button.dataset.result)));
-    document.querySelector('#reset').addEventListener('click', () => {
-      buttons.forEach(button => { button.classList.remove('selected'); button.setAttribute('aria-pressed', 'false'); });
-      detail.className = 'detail';
-      detail.querySelector('.detail-copy').innerHTML = '<span class="detail-label">Select an outcome</span><strong>Explore what happens after the GenLayer verdict.</strong>';
-    });
+    const modal=document.querySelector('#modal'),toastEl=document.querySelector('#toast');
+    const openModal=()=>modal.classList.add('show'),closeModal=()=>modal.classList.remove('show');
+    document.querySelectorAll('#createBtn,#simulateLink').forEach(x=>x.addEventListener('click',openModal));
+    document.querySelectorAll('#closeModal,#cancelModal').forEach(x=>x.addEventListener('click',closeModal));
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});
+    document.querySelectorAll('.verdict').forEach(x=>x.addEventListener('click',()=>{document.querySelectorAll('.verdict').forEach(y=>y.classList.remove('selected'));x.classList.add('selected');showToast(x.dataset.message)}));
+    document.querySelector('#proposalForm').addEventListener('submit',e=>{e.preventDefault();const title=document.querySelector('#title').value.trim()||'New proposal';const amount=Number(document.querySelector('#amount').value||0);let status=amount>20000?'BLOCKED':amount>10000?'NEEDS COMMUNITY VOTE':'ALLOWED';const cls=status==='ALLOWED'?'allowed':status==='BLOCKED'?'blocked':'vote';const row=document.createElement('tr');row.innerHTML=`<td><strong>${escapeHtml(title)}</strong><span class="small">${amount.toLocaleString()} USDC · just now</span></td><td class="small">0x71...4A2f</td><td class="proposal-status"><span class="status ${cls}">${status}</span></td>`;document.querySelector('#proposalRows').prepend(row);document.querySelector('#reviewCount').textContent=Number(document.querySelector('#reviewCount').textContent)+1;if(status==='NEEDS COMMUNITY VOTE')document.querySelector('#voteCount').textContent=Number(document.querySelector('#voteCount').textContent)+1;closeModal();e.target.reset();showToast(`Proposal reviewed: ${status}`)});
+    function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}function showToast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2800)}
+    document.querySelector('#policyBtn').addEventListener('click',()=>document.querySelector('#policy').scrollIntoView({behavior:'smooth'}));document.querySelector('#managePolicy').addEventListener('click',()=>showToast('Policy management is ready for the next module.'));document.querySelectorAll('.nav button').forEach(x=>x.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(y=>y.classList.remove('active'));x.classList.add('active');document.querySelector('#'+x.dataset.target)?.scrollIntoView({behavior:'smooth'})}));
   </script>
 </body>
 </html>
