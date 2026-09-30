@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@rainbow-me/rainbowkit/styles.css';
 import './rainbow-bridge.css';
@@ -10,7 +10,7 @@ import {
   useConnectModal,
 } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider, useAccount } from 'wagmi';
+import { WagmiProvider, useAccount, useSwitchChain } from 'wagmi';
 import { defineChain } from 'viem';
 
 const genlayerStudioDev = defineChain({
@@ -32,22 +32,50 @@ const config = getDefaultConfig({
 
 const queryClient = new QueryClient();
 
+// The landing page has no [data-page]; its start buttons connect the wallet,
+// switch to the dapp chain, then open the app.
+const onLanding = !document.querySelector('[data-page]');
+const START_EVENT = 'policylayer:start';
+const startOnboarding = () => window.dispatchEvent(new Event(START_EVENT));
+
 function WalletBridge() {
   const { openConnectModal } = useConnectModal();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  // Only leave the landing page after the user clicks a start button,
+  // not when wagmi silently reconnects a wallet on page load.
+  const [started, setStarted] = useState(false);
+  const switching = useRef(false);
 
   useEffect(() => {
-    const open = () => openConnectModal?.();
+    if (!onLanding) return undefined;
+    const start = () => {
+      setStarted(true);
+      if (!isConnected) openConnectModal?.();
+    };
     const ids = ['heroStart', 'ctaStart'];
-    ids.forEach((id) => document.querySelector(`#${id}`)?.addEventListener('click', open));
-    return () => ids.forEach((id) => document.querySelector(`#${id}`)?.removeEventListener('click', open));
-  }, [openConnectModal]);
+    ids.forEach((id) => document.querySelector(`#${id}`)?.addEventListener('click', start));
+    window.addEventListener(START_EVENT, start);
+    return () => {
+      ids.forEach((id) => document.querySelector(`#${id}`)?.removeEventListener('click', start));
+      window.removeEventListener(START_EVENT, start);
+    };
+  }, [openConnectModal, isConnected]);
 
   useEffect(() => {
-    if (document.querySelector('[data-page]') || !isConnected || !address) return;
-    localStorage.setItem('plWallet', JSON.stringify({ address, mode: 'RainbowKit', chain: 'GenLayer Studio Dev' }));
+    if (!started || !isConnected || !address) return;
+    if (chainId !== genlayerStudioDev.id) {
+      if (switching.current) return;
+      switching.current = true;
+      // wagmi adds the chain to the wallet first if it is missing.
+      switchChainAsync({ chainId: genlayerStudioDev.id })
+        .catch(() => setStarted(false))
+        .finally(() => { switching.current = false; });
+      return;
+    }
+    localStorage.setItem('plWallet', JSON.stringify({ address, mode: 'RainbowKit', chain: genlayerStudioDev.name }));
     window.location.href = 'policies.html';
-  }, [address, isConnected]);
+  }, [started, address, isConnected, chainId, switchChainAsync]);
 
   return null;
 }
@@ -58,7 +86,7 @@ function WalletHeader() {
       {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
         if (!mounted) return null;
         if (chain?.unsupported) {
-          return <button className="policy-wallet-connect" onClick={openChainModal}>Wrong network</button>;
+          return <button className="policy-wallet-connect" onClick={onLanding ? startOnboarding : openChainModal} type="button">Wrong network</button>;
         }
         if (account) {
           return (
@@ -68,7 +96,7 @@ function WalletHeader() {
             </button>
           );
         }
-        return <button className="policy-wallet-connect" onClick={openConnectModal} type="button">Get started <span>↗</span></button>;
+        return <button className="policy-wallet-connect" onClick={onLanding ? startOnboarding : openConnectModal} type="button">Get started <span>↗</span></button>;
       }}
     </ConnectButton.Custom>
   );

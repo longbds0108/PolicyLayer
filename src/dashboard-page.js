@@ -9,6 +9,7 @@ const STORAGE_KEY = 'policylayer-local-policy-check-v1';
 const page = document.getElementById('app')?.dataset.page || 'policies';
 
 const NAV_ITEMS = [
+  { key: 'home', label: 'Home', href: '/' },
   { key: 'policies', label: 'Policies', href: '/policies.html' },
   { key: 'check-proposal', label: 'Check Proposal', href: '/check-proposal.html' },
   { key: 'decision-log', label: 'Decision Log', href: '/decision-log.html' },
@@ -192,10 +193,12 @@ function chrome(activeKey, content) {
   document.title = `PolicyLayer — ${NAV_ITEMS.find((item) => item.key === activeKey)?.label || 'Policies'}`;
   const app = document.getElementById('app');
   if (!app) return;
+  // Keep the React wallet button mounted across re-renders.
+  const walletRoot = document.getElementById('wallet-header-root');
   app.innerHTML = `
     <div class="shell">
       <header class="topbar">
-        <a class="brand" href="/policies.html"><span class="mark">P</span><span>PolicyLayer</span></a>
+        <a class="brand" href="/"><span class="mark">P</span><span>PolicyLayer</span></a>
         <nav class="app-nav" aria-label="Primary navigation">${nav}</nav>
         <div class="top-actions">
           <span class="network"><i></i>${chainState.available ? GENLAYER_NETWORK_LABEL : 'Local fallback'}</span>
@@ -207,6 +210,7 @@ function chrome(activeKey, content) {
       <footer class="footer"><span>PolicyLayer · policy checking dapp</span><span>${chainState.available ? 'Reads and decisions from GenLayer Studio Dev' : 'Waiting for GenLayer · local data remains available'}</span></footer>
     </div>
   `;
+  if (walletRoot) app.querySelector('#wallet-header-root')?.replaceWith(walletRoot);
 }
 
 function policyCard(policy, compact = false) {
