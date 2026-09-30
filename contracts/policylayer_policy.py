@@ -13,29 +13,25 @@ class PolicyLayer(gl.contract.Contract):
     policy_title: str
     policy_version: str
     policy_text: str
-    policy_history: DynArray[str]
-    decision_log: DynArray[str]
-    decision_count: u256
+    policy_history: str
+    decision_log: str
 
     def __init__(self, title: str, version: str, policy_text: str):
-        """Create the first active natural-language policy version."""
+        """Initialize the active DAO policy."""
         if not title.strip() or not version.strip() or not policy_text.strip():
             raise gl.vm.UserError("Policy title, version, and text are required")
 
         self.policy_title = title.strip()
         self.policy_version = version.strip()
         self.policy_text = policy_text.strip()
-        self.decision_count = 0
-
-        self.policy_history.append(
-            json.dumps(
-                {
-                    "title": self.policy_title,
-                    "version": self.policy_version,
-                    "text": self.policy_text,
-                }
-            )
+        self.policy_history = json.dumps(
+            {
+                "title": self.policy_title,
+                "version": self.policy_version,
+                "text": self.policy_text,
+            }
         )
+        self.decision_log = ""
 
     @gl.public.write
     def create_policy(self, title: str, version: str, policy_text: str) -> typing.Any:
@@ -47,15 +43,17 @@ class PolicyLayer(gl.contract.Contract):
         self.policy_version = version.strip()
         self.policy_text = policy_text.strip()
 
-        self.policy_history.append(
-            json.dumps(
-                {
-                    "title": self.policy_title,
-                    "version": self.policy_version,
-                    "text": self.policy_text,
-                }
-            )
+        history_entry = json.dumps(
+            {
+                "title": self.policy_title,
+                "version": self.policy_version,
+                "text": self.policy_text,
+            }
         )
+        if self.policy_history:
+            self.policy_history = self.policy_history + "\n" + history_entry
+        else:
+            self.policy_history = history_entry
 
         return {
             "title": self.policy_title,
@@ -72,12 +70,12 @@ class PolicyLayer(gl.contract.Contract):
         }
 
     @gl.public.view
-    def get_policy_history(self) -> DynArray[str]:
+    def get_policy_history(self) -> str:
         return self.policy_history
 
     @gl.public.write
     def check_proposal(self, proposal: str) -> typing.Any:
-        """Review a proposal and persist its verdict in the Decision Log."""
+        """Review a proposal and append the result to the Decision Log."""
         if not proposal.strip():
             raise gl.vm.UserError("Proposal text is required")
 
@@ -127,20 +125,22 @@ Use NEEDS DAO VOTE when the policy or proposal is ambiguous or needs an exceptio
             return result_json
 
         result_json = gl.eq_principle.strict_eq(get_policy_verdict)
-
-        self.decision_count += 1
         decision = {
-            "decision_id": f"DEC-{self.decision_count}",
             "policy_title": policy_title,
             "policy_version": policy_version,
             "proposal": proposal.strip(),
             "verdict": result_json["verdict"],
             "reasoning": result_json["reasoning"],
         }
-        self.decision_log.append(json.dumps(decision))
+        decision_entry = json.dumps(decision)
+
+        if self.decision_log:
+            self.decision_log = self.decision_log + "\n" + decision_entry
+        else:
+            self.decision_log = decision_entry
 
         return decision
 
     @gl.public.view
-    def get_decision_log(self) -> DynArray[str]:
+    def get_decision_log(self) -> str:
         return self.decision_log
