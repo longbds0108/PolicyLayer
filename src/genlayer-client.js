@@ -13,11 +13,32 @@ function browserProvider() {
   return window.ethereum;
 }
 
+const ETH_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
 export async function getWalletAddress() {
   const provider = browserProvider();
-  const accounts = await provider.request({ method: 'eth_accounts' });
-  const address = accounts?.[0];
-  if (!address) {
+  // Some wallets return no accounts until the user grants permission for this
+  // origin (WalletConnect via QR, freshly installed MetaMask, etc.), so ask
+  // for permission before falling back to eth_accounts.
+  let accounts;
+  try {
+    accounts = await provider.request({ method: 'eth_accounts' });
+  } catch {
+    accounts = [];
+  }
+  let address = Array.isArray(accounts) ? accounts[0] : undefined;
+  if (!address || !ETH_ADDRESS_RE.test(String(address))) {
+    try {
+      accounts = await provider.request({ method: 'eth_requestAccounts' });
+      address = Array.isArray(accounts) ? accounts[0] : undefined;
+    } catch (error) {
+      // Preserve the wallet's own message when possible (e.g. user rejected).
+      throw error?.code === 4001
+        ? new Error('Wallet request was rejected. Approve the popup to continue.')
+        : new Error('Connect your wallet before submitting a transaction.');
+    }
+  }
+  if (!address || !ETH_ADDRESS_RE.test(String(address))) {
     throw new Error('Connect your wallet before submitting a transaction.');
   }
   return address;
@@ -92,6 +113,9 @@ export function humanizeWalletError(error) {
   if (/at least \d+ characters/i.test(raw)) {
     return raw.replace(/.*UserError:\s*/, '');
   }
+  if (/Address\s+"?undefined"?\s+is invalid/i.test(raw)) {
+    return 'Your wallet did not return an account address. Reconnect the wallet and try again.';
+  }
   if (/UserError:/.test(raw)) {
     return raw.split('UserError:').pop().trim();
   }
@@ -113,11 +137,15 @@ const DECIDED = new Set(['ACCEPTED', 'FINALIZED', 'UNDETERMINED', 'CANCELED']);
 
 export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   const provider = browserProvider();
-  const account = await getWalletAddress();
+  const address = await getWalletAddress();
   // Sending a tx from the wrong chain either fails with a cryptic error or,
   // worse, lands on the wallet's active chain. Force the right chain first.
   await ensureStudioChain(provider);
 
+  // genlayer-js/viem accepts either a hex address or a full Account object.
+  // Passing the object explicitly avoids "Address 'undefined' is invalid"
+  // when a stale RainbowKit reconnect leaves the account object partially set.
+  const account = { address, type: 'json-rpc' };
   const client = createClient({
     chain: studioDevnet,
     account,
