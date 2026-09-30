@@ -107,9 +107,6 @@ export function humanizeWalletError(error) {
   if (/insufficient funds|insufficient balance/i.test(raw)) {
     return 'The wallet does not have enough GEN to pay this transaction fee.';
   }
-  if (/only the DAO admin/i.test(raw)) {
-    return 'Only the DAO admin (the wallet that deployed the contract) can publish a new policy.';
-  }
   if (/at least \d+ characters/i.test(raw)) {
     return raw.replace(/.*UserError:\s*/, '');
   }

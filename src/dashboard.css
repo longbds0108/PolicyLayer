@@ -172,3 +172,15 @@ img.mark{background:transparent;border-radius:8px;object-fit:contain}
   text-transform:none;letter-spacing:0;
   font:12px/1.4 var(--font);color:#8b7fa1
 }
+
+.admin-hint{margin:0 0 14px}
+.admin-gate{display:grid;gap:12px;padding:20px;border:1px dashed #4a3f60;background:rgba(155,93,229,.05)}
+.admin-gate-mark{display:grid;place-items:center;width:34px;height:34px;border:1px solid #5a4075;color:#c9a1ff;font-size:18px}
+.admin-gate strong{font:18px var(--display);color:var(--text)}
+.admin-gate p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+.admin-gate-meta{display:grid;gap:8px;margin:0;padding:12px;border:1px solid var(--line);background:var(--surface3)}
+.admin-gate-meta>div{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.admin-gate-meta dt{color:#8b7fa1;font:11px var(--mono);letter-spacing:.04em;text-transform:uppercase;margin:0}
+.admin-gate-meta dd{margin:0}
+.admin-gate-meta code{color:#e2d3f2;font:12px var(--mono);padding:2px 6px;border:1px solid var(--line);border-radius:4px;background:#100c17}
+.admin-gate .secondary{justify-self:start}

@@ -1,6 +1,5 @@
 import {
   GENLAYER_NETWORK_LABEL,
-  getWalletAddress,
   humanizeWalletError,
   readPolicyLayer,
   writePolicyLayer,
@@ -299,7 +298,8 @@ function policiesPage() {
         ${policyCard(policy)}
       </article>
       <article class="panel">
-        <div class="panel-head"><div><span class="eyebrow">Create policy</span><h2>New version</h2></div><span>Admin only</span></div>
+        <div class="panel-head"><div><span class="eyebrow">Create policy</span><h2>New version</h2></div><span>Any wallet</span></div>
+        <p class="muted-note admin-hint">Any wallet with enough GEN for the fee can publish a new active policy. Governance stays off-chain.</p>
         <form id="policy-form" class="inline-form">
           <label>Policy name<input name="title" required maxlength="90" placeholder="e.g. Treasury Governance Policy" /></label>
           <label>Version<input name="version" required maxlength="20" placeholder="e.g. 1.1" /></label>
@@ -324,27 +324,7 @@ function policiesPage() {
     const text = String(form.get('text') || '').trim();
     if (!title || !version || !text) return;
     formEl.querySelector('.form-message')?.remove();
-    // Preflight the owner check on the client so the user sees a clear
-    // "not admin" message instead of the confusing GenLayer RPC error the
-    // simulation would otherwise return.
     submit.disabled = true;
-    submit.textContent = 'Verifying admin…';
-    try {
-      const [owner, wallet] = await Promise.all([
-        readPolicyLayer('get_owner').catch(() => null),
-        getWalletAddress().catch(() => null),
-      ]);
-      if (owner && wallet && String(owner).toLowerCase() !== String(wallet).toLowerCase()) {
-        const shortOwner = `${owner.slice(0, 6)}…${owner.slice(-4)}`;
-        setFormMessage(formEl, `Only the DAO admin wallet (${shortOwner}) can publish a new policy version.`);
-        submit.disabled = false;
-        submit.textContent = 'Save policy version ↗';
-        return;
-      }
-    } catch {
-      // If the check itself fails, fall through and let the write attempt
-      // surface whatever the contract says.
-    }
     submit.textContent = 'Saving on GenLayer…';
     const tx = attachTxStatus(formEl);
     try {
