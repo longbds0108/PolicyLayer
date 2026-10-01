@@ -1,12 +1,13 @@
-# v0.2.0
-# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
-
-from genlayer import *
+# v1.1.0 - PolicyLayer: DAO policy compliance review
+# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
 
 from dataclasses import dataclass
 import json
 import re
 import typing
+
+import genlayer as gl
+from genlayer.storage import allow as allow_storage
 
 
 @allow_storage
@@ -29,14 +30,12 @@ class Decision:
     reasoning: str
 
 
-class PolicyLayer(gl.Contract):
-    """PolicyLayer: DAO policy compliance review."""
-
+class PolicyLayer(gl.contract.Contract):
     policy_title: str
     policy_version: str
     policy_text: str
-    policy_history: DynArray[PolicyVersion]
-    decision_log: DynArray[Decision]
+    policy_history: gl.storage.DynArray[PolicyVersion]
+    decision_log: gl.storage.DynArray[Decision]
 
     # A proposal shorter than this is almost certainly noise and would still
     # cost the caller a full LLM round. Reject it up front to save fees.
@@ -96,27 +95,18 @@ class PolicyLayer(gl.Contract):
 
     @gl.public.view
     def get_active_policy(self) -> dict[str, str]:
-        # Defensive: if storage was never initialized (deploy constructor did
-        # not run), fall back to empty strings instead of raising, so the
-        # frontend sees a readable empty state rather than a cryptic error.
-        try:
-            return {
-                "title": self.policy_title,
-                "version": self.policy_version,
-                "text": self.policy_text,
-            }
-        except Exception:
-            return {"title": "", "version": "", "text": ""}
+        return {
+            "title": self.policy_title,
+            "version": self.policy_version,
+            "text": self.policy_text,
+        }
 
     @gl.public.view
     def get_policy_history(self) -> list[dict[str, str]]:
-        try:
-            return [
-                {"title": item.title, "version": item.version, "text": item.text}
-                for item in self.policy_history
-            ]
-        except Exception:
-            return []
+        return [
+            {"title": item.title, "version": item.version, "text": item.text}
+            for item in self.policy_history
+        ]
 
     @gl.public.write
     def check_proposal(self, proposal: str) -> dict[str, str]:
@@ -158,22 +148,14 @@ Active policy rules:
 Proposal:
 {proposal}
 
-Respond with the following JSON format:
-{{
-    "verdict": str, // "COMPLIANT", "CONFLICT" or "NEEDS DAO VOTE"
-    "rule": int     // number of the first violated rule (1..N) when verdict is "CONFLICT", else 0
-}}
+Return only valid JSON with exactly this shape:
+{{"verdict": "COMPLIANT|CONFLICT|NEEDS DAO VOTE", "rule": 0}}
 
 Use COMPLIANT when the proposal clearly follows the policy.
 Use CONFLICT when it clearly violates a policy rule, and set "rule" to the
 number of the first violated rule.
 Use NEEDS DAO VOTE when the policy or proposal is ambiguous or needs an exception.
 Set "rule" to 0 unless the verdict is CONFLICT.
-
-It is mandatory that you respond only using the JSON format above,
-nothing else. Don't include any other words or characters,
-your output must be only JSON without any formatting prefix or suffix.
-This result should be perfectly parsable by a JSON parser without errors.
 """
 
             raw_result = gl.nondet.exec_prompt(task)
@@ -228,18 +210,15 @@ This result should be perfectly parsable by a JSON parser without errors.
 
     @gl.public.view
     def get_decision_log(self) -> list[dict[str, str]]:
-        try:
-            return [
-                {
-                    "id": item.id,
-                    "submitter": item.submitter,
-                    "policy_title": item.policy_title,
-                    "policy_version": item.policy_version,
-                    "proposal": item.proposal,
-                    "verdict": item.verdict,
-                    "reasoning": item.reasoning,
-                }
-                for item in self.decision_log
-            ]
-        except Exception:
-            return []
+        return [
+            {
+                "id": item.id,
+                "submitter": item.submitter,
+                "policy_title": item.policy_title,
+                "policy_version": item.policy_version,
+                "proposal": item.proposal,
+                "verdict": item.verdict,
+                "reasoning": item.reasoning,
+            }
+            for item in self.decision_log
+        ]
