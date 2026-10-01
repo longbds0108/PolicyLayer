@@ -1,41 +1,24 @@
-# v1.1.0 - PolicyLayer: DAO policy compliance review
-# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
+# v0.3.0
+# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
-from dataclasses import dataclass
+from genlayer import *
+
 import json
 import re
 import typing
 
-import genlayer as gl
-from genlayer.storage import allow as allow_storage
 
+class PolicyLayer(gl.Contract):
+    """PolicyLayer: DAO policy compliance review."""
 
-@allow_storage
-@dataclass
-class PolicyVersion:
-    title: str
-    version: str
-    text: str
-
-
-@allow_storage
-@dataclass
-class Decision:
-    id: str
-    submitter: str
-    policy_title: str
-    policy_version: str
-    proposal: str
-    verdict: str
-    reasoning: str
-
-
-class PolicyLayer(gl.contract.Contract):
     policy_title: str
     policy_version: str
     policy_text: str
-    policy_history: gl.storage.DynArray[PolicyVersion]
-    decision_log: gl.storage.DynArray[Decision]
+    # History and log use primitive-string storage (one JSON blob per entry)
+    # so no custom dataclass + allow_storage is needed — the newer py-genlayer
+    # runtime fails to serialize user dataclasses, so we encode them ourselves.
+    policy_history: DynArray[str]
+    decision_log: DynArray[str]
 
     # A proposal shorter than this is almost certainly noise and would still
     # cost the caller a full LLM round. Reject it up front to save fees.
@@ -58,7 +41,7 @@ class PolicyLayer(gl.contract.Contract):
         self.policy_version = version
         self.policy_text = policy_text
         self.policy_history.append(
-            PolicyVersion(title=title, version=version, text=policy_text)
+            json.dumps({"title": title, "version": version, "text": policy_text})
         )
 
     @gl.public.write
@@ -88,7 +71,7 @@ class PolicyLayer(gl.contract.Contract):
         self.policy_version = version
         self.policy_text = policy_text
         self.policy_history.append(
-            PolicyVersion(title=title, version=version, text=policy_text)
+            json.dumps({"title": title, "version": version, "text": policy_text})
         )
 
         return {"title": title, "version": version, "text": policy_text}
@@ -103,10 +86,7 @@ class PolicyLayer(gl.contract.Contract):
 
     @gl.public.view
     def get_policy_history(self) -> list[dict[str, str]]:
-        return [
-            {"title": item.title, "version": item.version, "text": item.text}
-            for item in self.policy_history
-        ]
+        return [json.loads(item) for item in self.policy_history]
 
     @gl.public.write
     def check_proposal(self, proposal: str) -> dict[str, str]:
@@ -148,14 +128,22 @@ Active policy rules:
 Proposal:
 {proposal}
 
-Return only valid JSON with exactly this shape:
-{{"verdict": "COMPLIANT|CONFLICT|NEEDS DAO VOTE", "rule": 0}}
+Respond with the following JSON format:
+{{
+    "verdict": str, // "COMPLIANT", "CONFLICT" or "NEEDS DAO VOTE"
+    "rule": int     // number of the first violated rule (1..N) when verdict is "CONFLICT", else 0
+}}
 
 Use COMPLIANT when the proposal clearly follows the policy.
 Use CONFLICT when it clearly violates a policy rule, and set "rule" to the
 number of the first violated rule.
 Use NEEDS DAO VOTE when the policy or proposal is ambiguous or needs an exception.
 Set "rule" to 0 unless the verdict is CONFLICT.
+
+It is mandatory that you respond only using the JSON format above,
+nothing else. Don't include any other words or characters,
+your output must be only JSON without any formatting prefix or suffix.
+This result should be perfectly parsable by a JSON parser without errors.
 """
 
             raw_result = gl.nondet.exec_prompt(task)
@@ -190,35 +178,29 @@ Set "rule" to 0 unless the verdict is CONFLICT.
                 f"Policy {policy_label} or the proposal is ambiguous or needs an "
                 "exception. The DAO should vote on it."
             )
-        decision = Decision(
-            id="DEC-" + str(len(self.decision_log) + 1),
-            submitter=gl.message.sender_address.as_hex,
-            policy_title=policy_title,
-            policy_version=policy_version,
-            proposal=proposal,
-            verdict=verdict,
-            reasoning=reasoning,
+
+        decision_id = "DEC-" + str(len(self.decision_log) + 1)
+        self.decision_log.append(
+            json.dumps(
+                {
+                    "id": decision_id,
+                    "submitter": gl.message.sender_address.as_hex,
+                    "policy_title": policy_title,
+                    "policy_version": policy_version,
+                    "proposal": proposal,
+                    "verdict": verdict,
+                    "reasoning": reasoning,
+                }
+            )
         )
-        self.decision_log.append(decision)
 
         return {
-            "id": decision.id,
-            "verdict": decision.verdict,
-            "reasoning": decision.reasoning,
-            "policy_version": decision.policy_version,
+            "id": decision_id,
+            "verdict": verdict,
+            "reasoning": reasoning,
+            "policy_version": policy_version,
         }
 
     @gl.public.view
     def get_decision_log(self) -> list[dict[str, str]]:
-        return [
-            {
-                "id": item.id,
-                "submitter": item.submitter,
-                "policy_title": item.policy_title,
-                "policy_version": item.policy_version,
-                "proposal": item.proposal,
-                "verdict": item.verdict,
-                "reasoning": item.reasoning,
-            }
-            for item in self.decision_log
-        ]
+        return [json.loads(item) for item in self.decision_log]
