@@ -108,7 +108,13 @@ async function hydrateChain(render = true) {
     if (render) renderPage();
     return true;
   } catch (error) {
-    chainState = { ...chainState, error: error?.message || 'GenLayer is unavailable' };
+    // Collapse the noisy viem + Studio errors into a short, user-friendly line.
+    const raw = String(error?.shortMessage || error?.message || error || '');
+    let msg = 'GenLayer Studio did not return the current policy. Reload the page in a moment.';
+    if (/not found/i.test(raw)) msg = 'The PolicyLayer contract was not found on this GenLayer network. The frontend may be pointing at the wrong chain.';
+    else if (/execution failed/i.test(raw)) msg = 'The contract did not respond to view calls — it may still be finalizing on GenLayer. Try again in a moment.';
+    else if (/network|fetch|timeout/i.test(raw)) msg = 'Could not reach GenLayer Studio right now. Check your network and try again.';
+    chainState = { ...chainState, error: msg };
     if (render) renderPage();
     return false;
   }
