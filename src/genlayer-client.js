@@ -1,10 +1,13 @@
 import { createClient } from 'genlayer-js';
-import { studioDevnet } from 'genlayer-js/chains';
+import { studionet } from 'genlayer-js/chains';
 
-export const POLICY_LAYER_ADDRESS = '0xc29844c3fE3A1bb0EC0AE98DDf9f256A2A0068Bc';
-export const GENLAYER_NETWORK_LABEL = 'GenLayer Studio Dev';
-// The Studio Dev chain id (61997) in hex, per EIP-155.
-const STUDIO_CHAIN_HEX = '0xf22d';
+export const POLICY_LAYER_ADDRESS = '0xA287f1713Af46faae40E51056e1AE48E42b89062';
+export const GENLAYER_NETWORK_LABEL = 'GenLayer Studio';
+// GenLayer Studio Network chain id (61999) in hex, per EIP-155.
+const STUDIO_CHAIN_HEX = '0xf22f';
+const STUDIO_RPC_URL = 'https://studio.genlayer.com/api';
+const STUDIO_EXPLORER_URL = 'https://studio-next.genlayer.com';
+export { STUDIO_RPC_URL, STUDIO_EXPLORER_URL };
 
 function browserProvider() {
   if (typeof window === 'undefined' || !window.ethereum) {
@@ -44,7 +47,7 @@ export async function getWalletAddress() {
   return address;
 }
 
-// Ask the wallet to switch to GenLayer Studio Dev, adding the chain first
+// Ask the wallet to switch to GenLayer Studio Network, adding the chain first
 // when the wallet has never heard of it (EIP-3085 / error 4902).
 async function ensureStudioChain(provider) {
   let current;
@@ -73,8 +76,8 @@ async function ensureStudioChain(provider) {
           chainId: STUDIO_CHAIN_HEX,
           chainName: GENLAYER_NETWORK_LABEL,
           nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
-          rpcUrls: ['https://studio-dev.genlayer.com/api'],
-          blockExplorerUrls: ['https://studio-next.genlayer.com'],
+          rpcUrls: [STUDIO_RPC_URL],
+          blockExplorerUrls: [STUDIO_EXPLORER_URL],
         },
       ],
     });
@@ -82,7 +85,7 @@ async function ensureStudioChain(provider) {
 }
 
 export function createReadClient() {
-  return createClient({ chain: studioDevnet });
+  return createClient({ chain: studionet });
 }
 
 export async function readPolicyLayer(functionName, args = []) {
@@ -151,7 +154,7 @@ export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   // an object silently sends it to the Studio RPC, which does not support
   // signing and returns "The method eth_sendTransaction does not exist".
   const client = createClient({
-    chain: studioDevnet,
+    chain: studionet,
     account,
     provider,
   });

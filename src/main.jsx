@@ -14,10 +14,10 @@ import { WagmiProvider, useAccount, useSwitchChain } from 'wagmi';
 import { defineChain } from 'viem';
 
 const genlayerStudioDev = defineChain({
-  id: 61997,
-  name: 'GenLayer Studio Dev',
+  id: 61999,
+  name: 'GenLayer Studio',
   nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
-  rpcUrls: { default: { http: ['https://studio-dev.genlayer.com/api'] } },
+  rpcUrls: { default: { http: ['https://studio.genlayer.com/api'] } },
   blockExplorers: {
     default: { name: 'GenLayer Studio', url: 'https://studio-next.genlayer.com' },
   },
