@@ -44,12 +44,16 @@ function parseJsonLines(value) {
     .filter(Boolean);
 }
 
+// Strip any leading 'v' / 'V' the user typed into the version field so the
+// UI never shows "vv1.0" when it prepends its own 'v'.
+const stripVersionPrefix = (v) => String(v || '').trim().replace(/^v/i, '');
+
 function normalizeChainPolicy(policy, index = 0) {
   if (!policy || typeof policy !== 'object') return null;
   return {
     id: `GEN-${String(index + 1).padStart(3, '0')}`,
     title: String(policy.title || policy.policy_title || 'Untitled policy'),
-    version: String(policy.version || policy.policy_version || '—'),
+    version: stripVersionPrefix(policy.version || policy.policy_version || '—'),
     text: String(policy.text || policy.policy_text || ''),
     active: true,
     createdAt: policy.createdAt || new Date().toISOString(),
@@ -59,13 +63,14 @@ function normalizeChainPolicy(policy, index = 0) {
 function normalizeChainCheck(check, index = 0) {
   if (!check || typeof check !== 'object') return null;
   return {
-    id: `GEN-CHK-${String(index + 1).padStart(3, '0')}`,
+    id: String(check.id || `GEN-CHK-${String(index + 1).padStart(3, '0')}`),
     policyId: null,
     policyTitle: String(check.policy_title || check.policyTitle || 'PolicyLayer policy'),
-    policyVersion: String(check.policy_version || check.policyVersion || '—'),
+    policyVersion: stripVersionPrefix(check.policy_version || check.policyVersion || '—'),
     proposalText: String(check.proposal || check.proposalText || ''),
+    submitter: String(check.submitter || ''),
     verdict: String(check.verdict || 'NEEDS DAO VOTE'),
-    reasoning: String(check.reasoning || ''),
+    reasoning: String(check.reasoning || '').replace(/\bvv(\d)/gi, 'v$1'),
     createdAt: check.createdAt || new Date().toISOString(),
   };
 }
@@ -407,10 +412,16 @@ function checkProposalPage() {
 }
 
 function decisionLogPage() {
-  const checks = [...displayChecks()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  // On-chain ids look like DEC-1, DEC-2… — sort by that numeric suffix so the
+  // newest check is always on top, independent of our page-load timestamp.
+  const extractSeq = (id) => {
+    const m = String(id || '').match(/(\d+)$/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+  const checks = [...displayChecks()].sort((a, b) => extractSeq(b.id) - extractSeq(a.id));
   const content = checks.length ? `<div class="decision-list decision-log-list">${checks.map((check) => `
     <article class="check-record">
-      <div class="record-top"><div><span class="record-id">${escapeHtml(check.id)} · ${formatDate(check.createdAt)}</span><h3>${escapeHtml(check.policyTitle)} <small>v${escapeHtml(check.policyVersion)}</small></h3></div><span class="verdict ${verdictClass(check.verdict)}">${verdictLabel(check.verdict)}</span></div>
+      <div class="record-top"><div><span class="record-id">${escapeHtml(check.id)}${check.submitter ? ` · ${escapeHtml(check.submitter.slice(0,6))}…${escapeHtml(check.submitter.slice(-4))}` : ''}</span><h3>${escapeHtml(check.policyTitle)} <small>v${escapeHtml(check.policyVersion)}</small></h3></div><span class="verdict ${verdictClass(check.verdict)}">${verdictLabel(check.verdict)}</span></div>
       <p class="decision-reasoning">${escapeHtml(check.reasoning)}</p>
       <details><summary>View proposal content</summary><p class="proposal-text">${escapeHtml(check.proposalText)}</p></details>
     </article>
@@ -419,13 +430,21 @@ function decisionLogPage() {
   chrome('decision-log', `
     <section class="page-heading">
       <div><span class="eyebrow">03 / DECISION LOG</span><h1>Every verdict<br /><em>has a memory.</em></h1><p>A history of every policy check: proposal, policy version, verdict and reasoning, kept on chain for the community to audit.</p></div>
-      <a class="secondary" href="/check-proposal.html">New policy check ↗</a>
+      <button class="secondary" id="refresh-log" type="button">Refresh ↻</button>
     </section>
     <section class="panel">
       <div class="panel-head"><div><span class="eyebrow">Saved checks</span><h2>Decision history</h2></div><span>${checks.length} result${checks.length === 1 ? '' : 's'}</span></div>
       ${content}
     </section>
   `);
+
+  document.getElementById('refresh-log')?.addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+    await hydrateChain(false);
+    renderPage();
+  });
 }
 
 renderPage();
