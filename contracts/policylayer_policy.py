@@ -1,13 +1,12 @@
-# v1.1.0 - PolicyLayer: DAO policy compliance review
-# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
+# v0.2.0
+# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
+
+from genlayer import *
 
 from dataclasses import dataclass
 import json
 import re
 import typing
-
-import genlayer as gl
-from genlayer.storage import allow as allow_storage
 
 
 @allow_storage
@@ -30,12 +29,14 @@ class Decision:
     reasoning: str
 
 
-class PolicyLayer(gl.contract.Contract):
+class PolicyLayer(gl.Contract):
+    """PolicyLayer: DAO policy compliance review."""
+
     policy_title: str
     policy_version: str
     policy_text: str
-    policy_history: gl.storage.DynArray[PolicyVersion]
-    decision_log: gl.storage.DynArray[Decision]
+    policy_history: DynArray[PolicyVersion]
+    decision_log: DynArray[Decision]
 
     # A proposal shorter than this is almost certainly noise and would still
     # cost the caller a full LLM round. Reject it up front to save fees.
@@ -148,14 +149,22 @@ Active policy rules:
 Proposal:
 {proposal}
 
-Return only valid JSON with exactly this shape:
-{{"verdict": "COMPLIANT|CONFLICT|NEEDS DAO VOTE", "rule": 0}}
+Respond with the following JSON format:
+{{
+    "verdict": str, // "COMPLIANT", "CONFLICT" or "NEEDS DAO VOTE"
+    "rule": int     // number of the first violated rule (1..N) when verdict is "CONFLICT", else 0
+}}
 
 Use COMPLIANT when the proposal clearly follows the policy.
 Use CONFLICT when it clearly violates a policy rule, and set "rule" to the
 number of the first violated rule.
 Use NEEDS DAO VOTE when the policy or proposal is ambiguous or needs an exception.
 Set "rule" to 0 unless the verdict is CONFLICT.
+
+It is mandatory that you respond only using the JSON format above,
+nothing else. Don't include any other words or characters,
+your output must be only JSON without any formatting prefix or suffix.
+This result should be perfectly parsable by a JSON parser without errors.
 """
 
             raw_result = gl.nondet.exec_prompt(task)
