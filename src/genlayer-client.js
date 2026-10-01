@@ -1,7 +1,7 @@
 import { createClient } from 'genlayer-js';
 import { studionet } from 'genlayer-js/chains';
 
-export const POLICY_LAYER_ADDRESS = '0xA287f1713Af46faae40E51056e1AE48E42b89062';
+export const POLICY_LAYER_ADDRESS = '0xd57566D17E8f8D5CB418BC42944B81aDb98b9541';
 export const GENLAYER_NETWORK_LABEL = 'GenLayer Studio';
 // GenLayer Studio Network chain id (61999) in hex, per EIP-155.
 const STUDIO_CHAIN_HEX = '0xf22f';
