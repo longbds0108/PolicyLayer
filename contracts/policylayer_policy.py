@@ -96,18 +96,27 @@ class PolicyLayer(gl.Contract):
 
     @gl.public.view
     def get_active_policy(self) -> dict[str, str]:
-        return {
-            "title": self.policy_title,
-            "version": self.policy_version,
-            "text": self.policy_text,
-        }
+        # Defensive: if storage was never initialized (deploy constructor did
+        # not run), fall back to empty strings instead of raising, so the
+        # frontend sees a readable empty state rather than a cryptic error.
+        try:
+            return {
+                "title": self.policy_title,
+                "version": self.policy_version,
+                "text": self.policy_text,
+            }
+        except Exception:
+            return {"title": "", "version": "", "text": ""}
 
     @gl.public.view
     def get_policy_history(self) -> list[dict[str, str]]:
-        return [
-            {"title": item.title, "version": item.version, "text": item.text}
-            for item in self.policy_history
-        ]
+        try:
+            return [
+                {"title": item.title, "version": item.version, "text": item.text}
+                for item in self.policy_history
+            ]
+        except Exception:
+            return []
 
     @gl.public.write
     def check_proposal(self, proposal: str) -> dict[str, str]:
@@ -219,15 +228,18 @@ This result should be perfectly parsable by a JSON parser without errors.
 
     @gl.public.view
     def get_decision_log(self) -> list[dict[str, str]]:
-        return [
-            {
-                "id": item.id,
-                "submitter": item.submitter,
-                "policy_title": item.policy_title,
-                "policy_version": item.policy_version,
-                "proposal": item.proposal,
-                "verdict": item.verdict,
-                "reasoning": item.reasoning,
-            }
-            for item in self.decision_log
-        ]
+        try:
+            return [
+                {
+                    "id": item.id,
+                    "submitter": item.submitter,
+                    "policy_title": item.policy_title,
+                    "policy_version": item.policy_version,
+                    "proposal": item.proposal,
+                    "verdict": item.verdict,
+                    "reasoning": item.reasoning,
+                }
+                for item in self.decision_log
+            ]
+        except Exception:
+            return []
