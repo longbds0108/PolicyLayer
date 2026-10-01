@@ -169,26 +169,13 @@ export async function writePolicyLayer(functionName, args = [], hooks = {}) {
   });
 
   hooks.onStatus?.('signing');
-  // Do NOT pass `account` here. genlayer-js reads `senderAccount.address`
-  // internally; if we hand it the bare hex string, `.address` is undefined
-  // and getCurrentNonce/gen_call send malformed RPC params, which the
-  // Studio RPC rejects with "Missing or invalid parameters". Letting these
-  // fall back to `client.account` uses viem's parsed { address, type }.
-  const feeEstimate = await client.estimateTransactionFeesForWrite({
-    address: POLICY_LAYER_ADDRESS,
-    functionName,
-    args,
-  });
-
+  // genlayer-js 1.2.0 has no estimateTransactionFeesForWrite; writeContract
+  // handles the fee split internally. Don't pass `account` — it falls back
+  // to the parsed `client.account` which has the proper { address, type }.
   const hash = await client.writeContract({
     address: POLICY_LAYER_ADDRESS,
     functionName,
     args,
-    fees: {
-      distribution: feeEstimate.distribution,
-      messageAllocations: feeEstimate.messageAllocations,
-      feeValue: feeEstimate.feeValue,
-    },
   });
 
   // Show the hash the moment we have it, then poll the transaction so we
