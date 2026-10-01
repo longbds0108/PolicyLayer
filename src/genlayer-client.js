@@ -100,7 +100,16 @@ export async function readPolicyLayer(functionName, args = []) {
 // Turn opaque wallet / RPC errors into a sentence a DAO member can act on.
 export function humanizeWalletError(error) {
   const code = error?.code ?? error?.cause?.code ?? error?.data?.originalError?.code;
-  const raw = String(error?.shortMessage || error?.message || error || '').trim();
+  // viem's shortMessage drops the "Details: …" line we often need to
+  // classify Studio errors (execution failed, index out of range, …), so
+  // combine every field the error exposes before matching.
+  const raw = [
+    error?.shortMessage,
+    error?.message,
+    error?.details,
+    error?.cause?.message,
+    error?.cause?.details,
+  ].filter(Boolean).join(' ').trim() || String(error || '');
   if (code === 4001 || /user rejected|user denied|rejected by user/i.test(raw)) {
     return 'Wallet request was rejected. Approve the popup to continue.';
   }

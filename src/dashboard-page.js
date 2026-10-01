@@ -109,7 +109,15 @@ async function hydrateChain(render = true) {
     return true;
   } catch (error) {
     // Collapse the noisy viem + Studio errors into a short, user-friendly line.
-    const raw = String(error?.shortMessage || error?.message || error || '');
+    // Join every field the error exposes — viem's shortMessage drops the
+    // "Details: execution failed" line we need to classify the root cause.
+    const raw = [
+      error?.shortMessage,
+      error?.message,
+      error?.details,
+      error?.cause?.message,
+      error?.cause?.details,
+    ].filter(Boolean).join(' ');
     let msg = 'GenLayer Studio did not return the current policy. Reload the page in a moment.';
     if (/not found/i.test(raw)) {
       msg = 'The PolicyLayer contract was not found on this GenLayer network. The frontend may be pointing at the wrong chain.';
