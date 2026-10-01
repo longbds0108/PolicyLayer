@@ -123,5 +123,24 @@ function App() {
   );
 }
 
-const mountNode = document.getElementById('wallet-header-root') || document.getElementById('rainbow-root');
-if (mountNode) createRoot(mountNode).render(<App />);
+// In production Vite can run this chunk BEFORE dashboard-page.js has had a
+// chance to render the shell that contains #wallet-header-root. Poll briefly
+// and, if still missing, start a MutationObserver so we mount the moment
+// dashboard-page.js inserts the element.
+function mountWhenReady() {
+  const node = document.getElementById('wallet-header-root') || document.getElementById('rainbow-root');
+  if (node) {
+    createRoot(node).render(<App />);
+    return true;
+  }
+  return false;
+}
+
+if (!mountWhenReady()) {
+  const observer = new MutationObserver(() => {
+    if (mountWhenReady()) observer.disconnect();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  // Give up after 10 seconds so we don't leak the observer forever.
+  setTimeout(() => observer.disconnect(), 10000);
+}
