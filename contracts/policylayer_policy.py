@@ -1,4 +1,4 @@
-# v0.3.0
+# v0.3.1
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 from genlayer import *
@@ -14,11 +14,11 @@ class PolicyLayer(gl.Contract):
     policy_title: str
     policy_version: str
     policy_text: str
-    # History and log use primitive-string storage (one JSON blob per entry)
-    # so no custom dataclass + allow_storage is needed — the newer py-genlayer
-    # runtime fails to serialize user dataclasses, so we encode them ourselves.
-    policy_history: DynArray[str]
-    decision_log: DynArray[str]
+    # Use the explicit gl.storage namespace for DynArray — the bare DynArray
+    # from `from genlayer import *` loads at schema time but then fails at
+    # runtime with 'exit_code 1' on the newer py-genlayer runtime.
+    policy_history: gl.storage.DynArray[str]
+    decision_log: gl.storage.DynArray[str]
 
     # A proposal shorter than this is almost certainly noise and would still
     # cost the caller a full LLM round. Reject it up front to save fees.
