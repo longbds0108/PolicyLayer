@@ -1,5 +1,6 @@
 import {
   GENLAYER_NETWORK_LABEL,
+  getWalletAddress,
   humanizeWalletError,
   readPolicyLayer,
   writePolicyLayer,
@@ -24,6 +25,9 @@ let chainState = {
   policy: null,
   policies: [],
   checks: [],
+  owner: null,
+  wallet: null,
+  isAdmin: false,
   error: '',
 };
 
@@ -85,10 +89,12 @@ function displayChecks() {
 
 async function hydrateChain(render = true) {
   try {
-    const [active, history, log] = await Promise.all([
+    const [active, history, log, owner, wallet] = await Promise.all([
       readPolicyLayer('get_active_policy'),
       readPolicyLayer('get_policy_history'),
       readPolicyLayer('get_decision_log'),
+      readPolicyLayer('get_owner').catch(() => null),
+      getWalletAddress().catch(() => null),
     ]);
     const historyPolicies = parseJsonLines(history).map(normalizeChainPolicy).filter(Boolean);
     const activePolicyRecord = normalizeChainPolicy(active, historyPolicies.length);
@@ -98,11 +104,16 @@ async function hydrateChain(render = true) {
     if (activePolicyRecord && !policies.some((item) => item.version === activePolicyRecord.version && item.text === activePolicyRecord.text)) {
       policies.push({ ...activePolicyRecord, active: true });
     }
+    const ownerLc = owner ? String(owner).toLowerCase() : null;
+    const walletLc = wallet ? String(wallet).toLowerCase() : null;
     chainState = {
       available: true,
       policy: activePolicyRecord || policies.find((item) => item.active) || null,
       policies: policies.map((item) => ({ ...item, active: item.version === (activePolicyRecord?.version || item.version) })),
       checks: parseJsonLines(log).map(normalizeChainCheck).filter(Boolean).reverse(),
+      owner: owner || null,
+      wallet: wallet || null,
+      isAdmin: !!(ownerLc && walletLc && ownerLc === walletLc),
       error: '',
     };
     if (render) renderPage();
@@ -308,6 +319,68 @@ function policyHistory() {
   `).join('')}</div>`;
 }
 
+function renderPolicyForm() {
+  const owner = chainState.owner;
+  const wallet = chainState.wallet;
+
+  // No chain data yet: show the form and let the write flow surface any
+  // revert. This keeps the page functional while the RPC is still loading.
+  if (!owner) {
+    return `
+      <p class="muted-note admin-hint">Only the wallet that deployed this contract can publish a new policy version.</p>
+      <form id="policy-form" class="inline-form">
+        <label>Policy name<input name="title" required maxlength="90" placeholder="e.g. Treasury Governance Policy" /></label>
+        <label>Version<input name="version" required maxlength="20" placeholder="e.g. 1.1" /></label>
+        <label>Policy in natural language<textarea name="text" required rows="7" placeholder="Write the rules your DAO wants proposals to follow..."></textarea></label>
+        <button class="primary" type="submit">Save policy version ↗</button>
+      </form>
+    `;
+  }
+
+  // Wallet not connected: keep the form visible, warn about ownership.
+  if (!wallet) {
+    const shortOwner = `${owner.slice(0, 6)}…${owner.slice(-4)}`;
+    return `
+      <p class="muted-note admin-hint">Only the admin wallet <code>${escapeHtml(shortOwner)}</code> can publish a new policy. Connect that wallet to continue.</p>
+      <form id="policy-form" class="inline-form">
+        <label>Policy name<input name="title" required maxlength="90" placeholder="e.g. Treasury Governance Policy" /></label>
+        <label>Version<input name="version" required maxlength="20" placeholder="e.g. 1.1" /></label>
+        <label>Policy in natural language<textarea name="text" required rows="7" placeholder="Write the rules your DAO wants proposals to follow..."></textarea></label>
+        <button class="primary" type="submit">Save policy version ↗</button>
+      </form>
+    `;
+  }
+
+  // Wallet connected but NOT admin: hide the form, show the gate card.
+  if (!chainState.isAdmin) {
+    const shortOwner = `${owner.slice(0, 6)}…${owner.slice(-4)}`;
+    const shortWallet = `${wallet.slice(0, 6)}…${wallet.slice(-4)}`;
+    return `
+      <div class="admin-gate">
+        <div class="admin-gate-mark">✓</div>
+        <strong>You are viewing as a member</strong>
+        <p>Publishing a new policy version is limited to the wallet that deployed the contract.</p>
+        <dl class="admin-gate-meta">
+          <div><dt>Admin wallet</dt><dd><code>${escapeHtml(shortOwner)}</code></dd></div>
+          <div><dt>Your wallet</dt><dd><code>${escapeHtml(shortWallet)}</code></dd></div>
+        </dl>
+        <a class="secondary" href="/check-proposal.html">Check a proposal instead ↗</a>
+      </div>
+    `;
+  }
+
+  // Admin.
+  return `
+    <p class="muted-note admin-hint">Your wallet matches the contract owner — you can publish a new policy version.</p>
+    <form id="policy-form" class="inline-form">
+      <label>Policy name<input name="title" required maxlength="90" placeholder="e.g. Treasury Governance Policy" /></label>
+      <label>Version<input name="version" required maxlength="20" placeholder="e.g. 1.1" /></label>
+      <label>Policy in natural language<textarea name="text" required rows="7" placeholder="Write the rules your DAO wants proposals to follow..."></textarea></label>
+      <button class="primary" type="submit">Save policy version ↗</button>
+    </form>
+  `;
+}
+
 function policiesPage() {
   const policy = activePolicy();
   chrome('policies', `
@@ -321,14 +394,8 @@ function policiesPage() {
         ${policyCard(policy)}
       </article>
       <article class="panel">
-        <div class="panel-head"><div><span class="eyebrow">Create policy</span><h2>New version</h2></div><span>Any wallet</span></div>
-        <p class="muted-note admin-hint">Any wallet with enough GEN for the fee can publish a new active policy. Governance stays off-chain.</p>
-        <form id="policy-form" class="inline-form">
-          <label>Policy name<input name="title" required maxlength="90" placeholder="e.g. Treasury Governance Policy" /></label>
-          <label>Version<input name="version" required maxlength="20" placeholder="e.g. 1.1" /></label>
-          <label>Policy in natural language<textarea name="text" required rows="7" placeholder="Write the rules your DAO wants proposals to follow..."></textarea></label>
-          <button class="primary" type="submit">Save policy version ↗</button>
-        </form>
+        <div class="panel-head"><div><span class="eyebrow">Create policy</span><h2>New version</h2></div><span>${chainState.isAdmin ? 'You are the admin' : 'Admin only'}</span></div>
+        ${renderPolicyForm()}
       </article>
     </section>
     <section class="panel">

@@ -11,6 +11,9 @@ import typing
 class PolicyLayer(gl.Contract):
     """PolicyLayer: DAO policy compliance review."""
 
+    # The deployer address, recorded at construction. Only this address can
+    # publish new policy versions via create_policy. Everyone can read.
+    owner: str
     policy_title: str
     policy_version: str
     policy_text: str
@@ -25,7 +28,7 @@ class PolicyLayer(gl.Contract):
     MIN_PROPOSAL_LEN: typing.ClassVar[int] = 24
 
     def __init__(self, title: str, version: str, policy_text: str):
-        """Initialize the active DAO policy and its first version."""
+        """Initialize the active DAO policy and record the deployer as owner."""
         title = title.strip()
         version = version.strip()
         policy_text = policy_text.strip()
@@ -37,12 +40,17 @@ class PolicyLayer(gl.Contract):
         if not policy_text:
             raise gl.vm.UserError("Policy text is required")
 
+        self.owner = gl.message.sender_address.as_hex
         self.policy_title = title
         self.policy_version = version
         self.policy_text = policy_text
         self.policy_history.append(
             json.dumps({"title": title, "version": version, "text": policy_text})
         )
+
+    @gl.public.view
+    def get_owner(self) -> str:
+        return self.owner
 
     @gl.public.write
     def create_policy(
@@ -51,11 +59,12 @@ class PolicyLayer(gl.Contract):
         version: str,
         policy_text: str,
     ) -> dict[str, str]:
-        """Create and activate a new DAO policy version.
+        """Create and activate a new DAO policy version (owner only)."""
+        if gl.message.sender_address.as_hex.lower() != self.owner.lower():
+            raise gl.vm.UserError(
+                "Only the DAO admin can publish a new policy version"
+            )
 
-        Open to any wallet with enough GEN to pay the tx fee — governance
-        happens off-chain; PolicyLayer only records the current policy.
-        """
         title = title.strip()
         version = version.strip()
         policy_text = policy_text.strip()

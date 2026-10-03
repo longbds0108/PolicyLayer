@@ -1,52 +1,17 @@
-import { POLICY_LAYER_ADDRESS, GENLAYER_NETWORK_LABEL } from './genlayer-client.js';
-
-const NAV_ITEMS = [
-  { key: 'home', label: 'Home', href: '/' },
-  { key: 'policies', label: 'Policies', href: '/policies.html' },
-  { key: 'check-proposal', label: 'Check Proposal', href: '/check-proposal.html' },
-  { key: 'decision-log', label: 'Decision Log', href: '/decision-log.html' },
-  { key: 'docs', label: 'Docs', href: '/docs.html' },
-];
-
-const SECTIONS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'contract', label: 'Contract' },
-  { id: 'consensus', label: 'Consensus' },
-  { id: 'verdicts', label: 'Verdicts' },
-  { id: 'using', label: 'Using the dapp' },
-  { id: 'deploy', label: 'Deploy your own' },
-  { id: 'limits', label: 'Limits' },
-];
-
-const short = `${POLICY_LAYER_ADDRESS.slice(0, 6)}…${POLICY_LAYER_ADDRESS.slice(-4)}`;
-const explorer = `https://studio-next.genlayer.com/address/${POLICY_LAYER_ADDRESS}`;
-
-function nav(activeKey) {
-  return NAV_ITEMS.map((item) => `
-    <a class="${item.key === activeKey ? 'active' : ''}" href="${item.href}">${item.label}</a>
-  `).join('');
-}
-
-function tocItems() {
-  return SECTIONS.map((s) => `<li><a href="#${s.id}">${s.label}</a></li>`).join('');
-}
-
-function render() {
-  document.title = 'PolicyLayer — Docs';
-  const app = document.getElementById('app');
-  if (!app) return;
-  app.innerHTML = `
+import{G as t,P as i}from"./en_US-SK3WV2N3-CN-f7sgr.js";/* empty css                  */const l=[{key:"home",label:"Home",href:"/"},{key:"policies",label:"Policies",href:"/policies.html"},{key:"check-proposal",label:"Check Proposal",href:"/check-proposal.html"},{key:"decision-log",label:"Decision Log",href:"/decision-log.html"},{key:"docs",label:"Docs",href:"/docs.html"}],r=[{id:"overview",label:"Overview"},{id:"contract",label:"Contract"},{id:"consensus",label:"Consensus"},{id:"verdicts",label:"Verdicts"},{id:"using",label:"Using the dapp"},{id:"deploy",label:"Deploy your own"},{id:"limits",label:"Limits"}],c=`${i.slice(0,6)}…${i.slice(-4)}`,d=`https://studio-next.genlayer.com/address/${i}`;function n(s){return l.map(e=>`
+    <a class="${e.key===s?"active":""}" href="${e.href}">${e.label}</a>
+  `).join("")}function p(){return r.map(s=>`<li><a href="#${s.id}">${s.label}</a></li>`).join("")}function h(){document.title="PolicyLayer — Docs";const s=document.getElementById("app");if(!s)return;s.innerHTML=`
     <div class="shell">
       <header class="topbar">
         <a class="brand" href="/"><img class="mark" src="/assets/logo-mark.svg" alt="" width="26" height="26" /><span>PolicyLayer</span></a>
-        <nav class="app-nav" aria-label="Primary navigation">${nav('docs')}</nav>
+        <nav class="app-nav" aria-label="Primary navigation">${n("docs")}</nav>
         <div class="top-actions">
-          <span class="network"><i></i>${GENLAYER_NETWORK_LABEL}</span>
+          <span class="network"><i></i>${t}</span>
           <div id="wallet-header-root"></div>
           <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-label="Open menu" aria-expanded="false">☰</button>
         </div>
       </header>
-      <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">${nav('docs')}</nav>
+      <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">${n("docs")}</nav>
       <main class="main docs-main">
         <section class="page-heading">
           <div>
@@ -60,7 +25,7 @@ function render() {
         <div class="docs-layout">
           <aside class="docs-toc" aria-label="Table of contents">
             <span class="eyebrow">On this page</span>
-            <ul>${tocItems()}</ul>
+            <ul>${p()}</ul>
           </aside>
 
           <div class="docs-body">
@@ -72,7 +37,7 @@ function render() {
 
             <section class="panel" id="contract">
               <div class="panel-head"><div><span class="eyebrow">02 · Contract</span><h2>Storage &amp; public API</h2></div><span>py-genlayer</span></div>
-              <p><strong>Deployed at</strong> <a class="page-link" href="${explorer}" target="_blank" rel="noopener noreferrer">${short} ↗</a> on ${GENLAYER_NETWORK_LABEL}.</p>
+              <p><strong>Deployed at</strong> <a class="page-link" href="${d}" target="_blank" rel="noopener noreferrer">${c} ↗</a> on ${t}.</p>
               <div class="docs-grid">
                 <div>
                   <span class="eyebrow">Storage</span>
@@ -143,7 +108,7 @@ function render() {
                 <li><a class="page-link" href="/check-proposal.html">Check Proposal</a> — paste the proposal text (24+ characters), sign the transaction and wait for the verdict. Available to any wallet with GEN for the fee. The transaction hash is shown while validators run, with a link to the Studio explorer and a <em>Stop waiting</em> button if you want to move on.</li>
                 <li><a class="page-link" href="/decision-log.html">Decision Log</a> — every verdict on chain, newest first, with the reasoning and the proposal text.</li>
               </ol>
-              <p class="muted-note">Landing on any of these pages triggers <em>Get started</em> → wallet connect → chain switch to ${GENLAYER_NETWORK_LABEL} → Policies. The chain is added to your wallet if it is missing.</p>
+              <p class="muted-note">Landing on any of these pages triggers <em>Get started</em> → wallet connect → chain switch to ${t} → Policies. The chain is added to your wallet if it is missing.</p>
             </section>
 
             <section class="panel" id="deploy">
@@ -174,20 +139,4 @@ function render() {
         <footer class="footer"><span>PolicyLayer · policy checking dapp</span><span><a href="/docs.html">Policy docs</a> · <a href="https://github.com/longbds0108/PolicyLayer" target="_blank" rel="noopener noreferrer">GitHub</a></span></footer>
       </main>
     </div>
-  `;
-
-  // Wire up the mobile menu toggle (same behaviour as the app pages).
-  const toggle = app.querySelector('#mobileNavToggle');
-  const menu = app.querySelector('#mobileNav');
-  toggle?.addEventListener('click', () => {
-    const open = menu?.classList.toggle('open');
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
-  // Close the mobile menu after the user picks a link.
-  menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => {
-    menu.classList.remove('open');
-    toggle?.setAttribute('aria-expanded', 'false');
-  }));
-}
-
-render();
+  `;const e=s.querySelector("#mobileNavToggle"),o=s.querySelector("#mobileNav");e==null||e.addEventListener("click",()=>{const a=o==null?void 0:o.classList.toggle("open");e.setAttribute("aria-expanded",a?"true":"false")}),o==null||o.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{o.classList.remove("open"),e==null||e.setAttribute("aria-expanded","false")}))}h();
